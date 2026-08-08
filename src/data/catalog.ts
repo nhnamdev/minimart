@@ -1,6 +1,7 @@
 import type { Category } from "@/types/catalog";
 
 const image = (file: string) => `/images/order-multi/${file}`;
+const placeholder = image("product-placeholder.jpg");
 
 export const categories: Category[] = [
   {
@@ -28,9 +29,9 @@ export const categories: Category[] = [
       { id: "cards", categoryId: "betel", name: "双k 扑克♠️", price: 20000, image: image("product-06.jpg") },
       { id: "hecheng-50", categoryId: "betel", name: "和成天下 50元", price: 230000, image: image("product-08.webp") },
       { id: "hecheng-100", categoryId: "betel", name: "和成天下 100元", price: 450000, image: image("product-07.jpg") },
-      { id: "hecheng-200", categoryId: "betel", name: "和成天下 200元", price: 780000, image: image("store-avatar.jpg") },
-      { id: "zhangxinfa", categoryId: "betel", name: "张新发 50元", price: 210000, image: image("store-avatar.jpg") },
-      { id: "goji", categoryId: "betel", name: "枸杞槟榔 50元", price: 230000, image: image("store-avatar.jpg") },
+      { id: "hecheng-200", categoryId: "betel", name: "和成天下 200元", price: 780000, image: placeholder },
+      { id: "zhangxinfa", categoryId: "betel", name: "张新发 50元", price: 210000, image: placeholder },
+      { id: "goji", categoryId: "betel", name: "枸杞槟榔 50元", price: 230000, image: placeholder },
     ],
   },
   {

@@ -12,6 +12,7 @@ const assets = [
   ["product-07.jpg", "https://feigeoss.blob.core.windows.net/feige-img-hub/toanh5116@gmail.com/1778226653161-2hc54AMSrt.jpg?x-oss-process=style/x100"],
   ["product-08.webp", "https://feigeoss.blob.core.windows.net/feige-img-hub/toanh5116@gmail.com/1778206025932-dWYMSp4aSk.webp?x-oss-process=style/x100"],
   ["product-09.jpeg", "https://feigeoss.blob.core.windows.net/feige-img-hub/toanh5116@gmail.com/1781668773691-5z7SerRihS.jpeg?x-oss-process=style/x100"],
+  ["product-placeholder.jpg", "https://feige-img-hub.oss-cn-hangzhou.aliyuncs.com/1592144190779-QRTrDtCm2n.jpg?x-oss-process=style/x100"],
 ];
 
 const output = path.resolve("public/images/order-multi");
