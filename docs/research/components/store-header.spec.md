@@ -39,4 +39,4 @@
 
 ## Responsive behavior
 - All source measurements use vw and maintain fixed proportions.
-- Mobile shell uses the exact visual proportions; desktop is capped for usability.
+- The shell preserves the source's viewport-proportional behavior at mobile and desktop widths.

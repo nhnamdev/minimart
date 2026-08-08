@@ -41,5 +41,5 @@
 - First products and prices are verbatim from the live catalog.
 
 ## Responsive behavior
-- Rail 20%, products 80% at all widths.
+- Rail 20%, products 80% at all widths; viewport-relative sizing remains uncapped like the source.
 - Internal panes scroll independently within remaining viewport.

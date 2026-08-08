@@ -33,7 +33,7 @@
 - Original CSS is viewport-proportional (`vw`), not breakpoint-driven.
 - Left rail remains 20vw and product pane 80vw at 1440, 768, and 390 widths.
 - Text, images, spacing, and header scale with viewport width.
-- On very wide screens the original becomes oversized; the clone preserves this defining behavior but caps the shell at 780px for practical desktop use while maintaining exact mobile proportions.
+- On very wide screens the original becomes oversized; the clone preserves this defining viewport-proportional behavior for fidelity.
 
 ## Known extraction limitation
 

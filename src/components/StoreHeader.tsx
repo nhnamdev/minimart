@@ -84,7 +84,7 @@ export function StoreHeader({ searchTerm, onSearchChange }: StoreHeaderProps) {
         </button>
       </div>
 
-      <div className="flex h-[6vw] items-center justify-end gap-[1.5vw] pr-[5vw] pb-[2vw]">
+      <div className="flex h-[8vw] items-center justify-end gap-[1.5vw] pr-[5vw] pb-[2vw]">
         <a
           href="tel:0865016689"
           className="flex items-center gap-[1vw] rounded-[2.55vw] border-[.55px] border-white px-[2vw] py-[1vw] text-[3vw] leading-none"
