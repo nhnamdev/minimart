@@ -3,11 +3,14 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 
+import { DeliveryCheckoutDialog } from "@/components/DeliveryCheckoutDialog";
 import { formatVnd } from "@/data/catalog";
 import { CartIcon, CloseIcon, MinusIcon, PlusIcon } from "@/components/icons";
+import { PickupCheckoutDialog } from "@/components/PickupCheckoutDialog";
 import type { CartQuantities, Product } from "@/types/catalog";
 
 interface ShoppingCartProps {
+  fulfillmentMode: "delivery" | "pickup";
   products: Product[];
   quantities: CartQuantities;
   onQuantityChange: (productId: string, next: number) => void;
@@ -15,12 +18,15 @@ interface ShoppingCartProps {
 }
 
 export function ShoppingCart({
+  fulfillmentMode,
   products,
   quantities,
   onQuantityChange,
   onClear,
 }: ShoppingCartProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isDeliveryCheckoutOpen, setIsDeliveryCheckoutOpen] = useState(false);
+  const [isPickupCheckoutOpen, setIsPickupCheckoutOpen] = useState(false);
   const [notice, setNotice] = useState("");
 
   const selectedProducts = useMemo(
@@ -45,11 +51,43 @@ export function ShoppingCart({
 
   function handleCheckout() {
     if (!hasItems) return;
-    setNotice("Đây là bản demo, đơn hàng chưa được gửi đi.");
+
+    if (fulfillmentMode === "delivery") {
+      setIsOpen(false);
+      setIsDeliveryCheckoutOpen(true);
+      return;
+    }
+
+    setIsOpen(false);
+    setIsPickupCheckoutOpen(true);
   }
 
   return (
     <>
+      {isDeliveryCheckoutOpen && (
+        <DeliveryCheckoutDialog
+          products={products}
+          quantities={quantities}
+          onCancel={() => setIsDeliveryCheckoutOpen(false)}
+          onConfirm={() => {
+            setIsDeliveryCheckoutOpen(false);
+            setNotice("Đây là bản demo, đơn hàng chưa được gửi đi.");
+          }}
+        />
+      )}
+
+      {isPickupCheckoutOpen && (
+        <PickupCheckoutDialog
+          products={products}
+          quantities={quantities}
+          onCancel={() => setIsPickupCheckoutOpen(false)}
+          onConfirm={() => {
+            setIsPickupCheckoutOpen(false);
+            setNotice("Đây là bản demo, đơn hàng chưa được gửi đi.");
+          }}
+        />
+      )}
+
       <section
         aria-hidden={!isOpen}
         className={`absolute right-0 bottom-12 left-0 z-[98] max-h-[min(62vh,420px)] overflow-y-auto border-t border-black/10 bg-white shadow-[0_-8px_24px_rgba(0,0,0,0.16)] transition-[opacity,transform,visibility] duration-200 ease-out ${

@@ -10,7 +10,7 @@ interface StoreHeaderProps {
   onSearchChange: (value: string) => void;
 }
 
-const languages = ["汉语", "Tiếng Việt", "English"] as const;
+const languages = ["Tiếng Việt", "Tiếng Trung", "Tiếng Anh"] as const;
 
 export function StoreHeader({ searchTerm, onSearchChange }: StoreHeaderProps) {
   const [isLanguageOpen, setIsLanguageOpen] = useState(false);
@@ -57,7 +57,7 @@ export function StoreHeader({ searchTerm, onSearchChange }: StoreHeaderProps) {
         <div className="relative size-[18vw] shrink-0 overflow-hidden rounded-[1vw]">
           <Image
             src="/images/order-multi/store-avatar.jpg"
-            alt="Ảnh đại diện 小兔便利店"
+            alt="Ảnh đại diện Cửa hàng tiện lợi Thỏ Nhỏ"
             fill
             sizes="18vw"
             className="object-cover"
@@ -65,9 +65,9 @@ export function StoreHeader({ searchTerm, onSearchChange }: StoreHeaderProps) {
         </div>
 
         <div className="ml-[1.5vw] mr-[1vw] min-w-0 flex-1">
-          <h1 className="text-[4.3vw] leading-[5vw] font-bold">小兔便利店</h1>
+          <h1 className="text-[4.3vw] leading-[5vw] font-bold">Cửa hàng tiện lợi Thỏ Nhỏ</h1>
           <div className="mb-[2vw] w-[53vw] text-[3.1vw] leading-[3.3vw]">
-            <p>小兔便利店</p>
+            <p>Tiện lợi mỗi ngày</p>
             <p>Thời gian mở cửa: Cả ngày</p>
           </div>
         </div>

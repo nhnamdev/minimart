@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CatalogBrowser } from "@/components/CatalogBrowser";
+import { FulfillmentChoice } from "@/components/FulfillmentChoice";
 import { OrderTabs } from "@/components/OrderTabs";
 import { ShoppingCart } from "@/components/ShoppingCart";
 import { StoreHeader } from "@/components/StoreHeader";
@@ -9,6 +10,7 @@ import { categories, products } from "@/data/catalog";
 import type { CartQuantities } from "@/types/catalog";
 
 export function Storefront() {
+  const [fulfillmentMode, setFulfillmentMode] = useState<"delivery" | "pickup" | null>(null);
   const [activeTab, setActiveTab] = useState<"goods" | "orders">("goods");
   const [searchTerm, setSearchTerm] = useState("");
   const [quantities, setQuantities] = useState<CartQuantities>({});
@@ -25,6 +27,10 @@ export function Storefront() {
     });
   }
 
+  if (fulfillmentMode === null) {
+    return <FulfillmentChoice onSelect={setFulfillmentMode} />;
+  }
+
   return (
     <main className="flex h-dvh w-full flex-col overflow-hidden bg-white">
       <StoreHeader searchTerm={searchTerm} onSearchChange={setSearchTerm} />
@@ -39,6 +45,7 @@ export function Storefront() {
             onQuantityChange={updateQuantity}
           />
           <ShoppingCart
+            fulfillmentMode={fulfillmentMode}
             products={products}
             quantities={quantities}
             onQuantityChange={updateQuantity}

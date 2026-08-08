@@ -3,8 +3,8 @@
 ## Entry flow
 
 - First visit displays a centered `Thông báo` dialog containing `小兔便利店` and an `OK` action.
-- Dismissing it reveals the pickup-method route. Choosing `Giao hàng` opens `#/goods`.
-- The clone starts directly on the requested goods view and reproduces the store controls as local UI.
+- Dismissing it reveals the fulfillment-method route. Choosing `Giao hàng` or `Tự đến lấy` opens `#/goods` with that mode retained for checkout.
+- The clone reproduces the fulfillment choice before the goods view and keeps the chosen mode in local UI state.
 
 ## Header
 
@@ -27,6 +27,9 @@
 - Empty icon background is `#2b343c`; populated state is `#fdbc24` with white icon and a red count badge.
 - Empty price text is translucent white; populated total is white.
 - The pay panel remains `#2b333b` while minimum order is unmet and turns `#fdbc24` when eligible.
+- Checkout with `Giao hàng` opens the delivery confirmation dialog with a customer address input.
+- Checkout with `Tự đến lấy` opens the Pickup confirmation dialog. It keeps the name and telephone inputs, replaces the delivery-address input with the fixed store address `32a Đường Số 81, Tân Hưng, Hồ Chí Minh`, and uses the live cart rows/count/subtotal.
+- Both checkout dialogs are click-driven. `Huỷ` closes without changing the cart; `Xác nhận` remains demo-only and does not transmit an order.
 
 ## Responsive behavior
 

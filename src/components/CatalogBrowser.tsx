@@ -104,7 +104,7 @@ export function CatalogBrowser({
     <>
       <div className="flex min-h-0 flex-1 overflow-hidden pb-[48px]">
         <nav
-          aria-label="Product categories"
+          aria-label="Danh mục sản phẩm"
           className="w-1/5 shrink-0 overflow-y-auto bg-[#f3f5f7]"
         >
           {visibleCategories.map((category) => {
@@ -149,7 +149,7 @@ export function CatalogBrowser({
                     <button
                       type="button"
                       className="ml-[2vw] shrink-0 rounded-[1vw] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fdbc24]"
-                      aria-label={`View ${product.name}`}
+                      aria-label={`Xem ${product.name}`}
                       onClick={() => setSelectedProduct(product)}
                     >
                       <Image
@@ -182,14 +182,14 @@ export function CatalogBrowser({
 
                     <div
                       className="ml-[1vw] flex shrink-0 items-center justify-end gap-[0.4vw]"
-                      aria-label={`Quantity for ${product.name}`}
+                      aria-label={`Số lượng ${product.name}`}
                     >
                       {quantity > 0 ? (
                         <>
                           <button
                             type="button"
                             className="flex size-[9vw] animate-in items-center justify-center text-[#fdbc24] transition-all duration-[400ms] spin-in-90 disabled:cursor-not-allowed disabled:opacity-35"
-                            aria-label={`Remove one ${product.name}`}
+                            aria-label={`Giảm một ${product.name}`}
                             disabled={product.soldOut}
                             onClick={() => onQuantityChange(product.id, quantity - 1)}
                           >
@@ -205,8 +205,8 @@ export function CatalogBrowser({
                         className="flex size-[9vw] items-center justify-center text-[#fdbc24] transition-all duration-[400ms] disabled:cursor-not-allowed disabled:opacity-35"
                         aria-label={
                           product.soldOut
-                            ? `${product.name} is sold out`
-                            : `Add one ${product.name}`
+                            ? `${product.name} đã hết hàng`
+                            : `Thêm một ${product.name}`
                         }
                         disabled={product.soldOut}
                         onClick={() => onQuantityChange(product.id, quantity + 1)}
@@ -236,7 +236,7 @@ export function CatalogBrowser({
           >
             <button
               type="button"
-              aria-label="Close product details"
+              aria-label="Đóng chi tiết sản phẩm"
               className="absolute top-3 right-3 z-10 flex size-10 items-center justify-center rounded-full bg-white/90 text-[#232323] shadow"
               onClick={() => setSelectedProduct(null)}
             >

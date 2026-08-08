@@ -29,3 +29,15 @@ export function MinusIcon(props: IconProps) {
 export function CloseIcon(props: IconProps) {
   return <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>;
 }
+
+export function DeliveryIcon(props: IconProps) {
+  return <svg viewBox="0 0 64 64" fill="none" aria-hidden="true" {...props}><path d="M8 16h31v30H8V16Z" fill="#FFD34E" stroke="#20252B" strokeWidth="3" strokeLinejoin="round"/><path d="M39 26h9l8 10v10H39V26Z" fill="#FFF2B7" stroke="#20252B" strokeWidth="3" strokeLinejoin="round"/><path d="M45 28v9h10" stroke="#20252B" strokeWidth="3" strokeLinejoin="round"/><circle cx="20" cy="48" r="6" fill="#FFF" stroke="#20252B" strokeWidth="3"/><circle cx="47" cy="48" r="6" fill="#FFF" stroke="#20252B" strokeWidth="3"/><path d="M14 24h15M14 31h11" stroke="#20252B" strokeWidth="3" strokeLinecap="round"/></svg>;
+}
+
+export function PickupIcon(props: IconProps) {
+  return <svg viewBox="0 0 64 64" fill="none" aria-hidden="true" {...props}><path d="M12 25h40v30H12V25Z" fill="#FFF" stroke="#20252B" strokeWidth="3"/><path d="m9 25 5-14h36l5 14" fill="#FFD34E" stroke="#20252B" strokeWidth="3" strokeLinejoin="round"/><path d="M9 25c0 5 8 5 8 0 0 5 8 5 8 0 0 5 8 5 8 0 0 5 8 5 8 0 0 5 8 5 8 0 0 5 8 5 8 0" fill="#FFF2B7" stroke="#20252B" strokeWidth="3" strokeLinejoin="round"/><path d="M22 55V39h20v16" stroke="#20252B" strokeWidth="3"/></svg>;
+}
+
+export function LocationIcon(props: IconProps) {
+  return <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}><path d="M20 10c0 5.5-8 11-8 11S4 15.5 4 10a8 8 0 1 1 16 0Z" stroke="currentColor" strokeWidth="1.7"/><circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.7"/></svg>;
+}

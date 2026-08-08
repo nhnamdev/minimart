@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "小兔便利店",
-  description: "Order Multi storefront",
+  title: "Cửa hàng tiện lợi Thỏ Nhỏ",
+  description: "Đặt hàng trực tuyến tại Cửa hàng tiện lợi Thỏ Nhỏ",
 };
 
 export default function RootLayout({
