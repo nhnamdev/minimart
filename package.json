@@ -2,7 +2,7 @@
   "name": "minimart",
   "version": "1.0.0",
   "private": true,
-  "description": "Giao diện đặt hàng trực tuyến cho Cửa hàng tiện lợi Thỏ Nhỏ",
+  "description": "Giao diện đặt hàng trực tuyến cho Cửa hàng tiện lợi MiniMart",
   "license": "MIT",
   "keywords": [
     "minimart",

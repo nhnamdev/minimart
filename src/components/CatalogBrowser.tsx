@@ -105,7 +105,7 @@ export function CatalogBrowser({
       <div className="flex min-h-0 flex-1 overflow-hidden pb-[48px]">
         <nav
           aria-label="Danh mục sản phẩm"
-          className="w-1/5 shrink-0 overflow-y-auto bg-[#f3f5f7]"
+          className="w-1/5 shrink-0 overflow-y-auto bg-[#f3f5f7] md:w-60"
         >
           {visibleCategories.map((category) => {
             const isActive = resolvedActiveCategory === category.id;
@@ -115,7 +115,7 @@ export function CatalogBrowser({
                 key={category.id}
                 type="button"
                 aria-current={isActive ? "true" : undefined}
-                className={`flex min-h-[6vh] w-full items-center justify-center px-[1vw] text-center text-[3.2vw] leading-tight text-[#5b5b5b] transition-colors ${
+                className={`flex min-h-[6vh] w-full items-center justify-center px-[1vw] text-center text-[3.2vw] leading-tight text-[#5b5b5b] transition-colors md:min-h-14 md:px-4 md:text-sm ${
                   isActive ? "bg-white font-bold" : "font-normal"
                 }`}
                 onClick={() => scrollToCategory(category.id)}
@@ -133,8 +133,9 @@ export function CatalogBrowser({
               id={`category-${category.id}`}
               data-catalog-section
               data-category-id={category.id}
+              className="lg:grid lg:grid-cols-2"
             >
-              <h2 className="border-l-[3px] border-[#777] bg-[#f3f5f7] pl-[14px] text-[3.5vw] leading-[7vw] font-bold text-[#232323]">
+              <h2 className="border-l-[3px] border-[#777] bg-[#f3f5f7] pl-[14px] text-[3.5vw] leading-[7vw] font-bold text-[#232323] md:h-11 md:text-base md:leading-[44px] lg:col-span-2">
                 {category.name}
               </h2>
 
@@ -144,11 +145,11 @@ export function CatalogBrowser({
                 return (
                   <article
                     key={product.id}
-                    className="my-[3vw] mr-[3vw] flex items-center border-b border-[rgba(7,17,27,.1)] pb-[3vw]"
+                    className="my-[3vw] mr-[3vw] flex items-center border-b border-[rgba(7,17,27,.1)] pb-[3vw] md:m-0 md:min-h-36 md:p-4 lg:border-r"
                   >
                     <button
                       type="button"
-                      className="ml-[2vw] shrink-0 rounded-[1vw] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fdbc24]"
+                      className="ml-[2vw] shrink-0 rounded-[1vw] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fdbc24] md:ml-0 md:rounded-lg"
                       aria-label={`Xem ${product.name}`}
                       onClick={() => setSelectedProduct(product)}
                     >
@@ -158,51 +159,51 @@ export function CatalogBrowser({
                         width={180}
                         height={180}
                         sizes="18vw"
-                        className="size-[18vw] rounded-[1vw] object-cover"
+                        className="size-[18vw] rounded-[1vw] object-cover md:size-24 md:rounded-lg"
                       />
                     </button>
 
                     <button
                       type="button"
-                      className="flex min-w-0 flex-1 flex-col justify-center self-stretch text-left"
+                      className="flex min-w-0 flex-1 flex-col justify-center self-stretch text-left md:pl-3"
                       onClick={() => setSelectedProduct(product)}
                     >
-                      <span className="pb-[1vw] text-[3.6vw] leading-tight font-semibold text-[#232323]">
+                      <span className="pb-[1vw] text-[3.6vw] leading-tight font-semibold text-[#232323] md:pb-1.5 md:text-[15px]">
                         {product.name}
                       </span>
                       {product.description ? (
-                        <span className="w-[35vw] max-w-full text-[3vw] leading-snug text-[#93999f]">
+                        <span className="w-[35vw] max-w-full text-[3vw] leading-snug text-[#93999f] md:w-auto md:text-xs">
                           {product.description}
                         </span>
                       ) : null}
-                      <span className="mt-auto text-[4.3vw] leading-none font-bold text-[#fb4f45]">
+                      <span className="mt-auto text-[4.3vw] leading-none font-bold text-[#fb4f45] md:text-lg">
                         {formatVnd(product.price)}
                       </span>
                     </button>
 
                     <div
-                      className="ml-[1vw] flex shrink-0 items-center justify-end gap-[0.4vw]"
+                      className="ml-[1vw] flex shrink-0 items-center justify-end gap-[0.4vw] md:ml-1 md:gap-0"
                       aria-label={`Số lượng ${product.name}`}
                     >
                       {quantity > 0 ? (
                         <>
                           <button
                             type="button"
-                            className="flex size-[9vw] animate-in items-center justify-center text-[#fdbc24] transition-all duration-[400ms] spin-in-90 disabled:cursor-not-allowed disabled:opacity-35"
+                            className="flex size-[9vw] animate-in items-center justify-center text-[#fdbc24] transition-all duration-[400ms] spin-in-90 disabled:cursor-not-allowed disabled:opacity-35 md:size-10"
                             aria-label={`Giảm một ${product.name}`}
                             disabled={product.soldOut}
                             onClick={() => onQuantityChange(product.id, quantity - 1)}
                           >
-                            <MinusIcon className="size-[7vw]" />
+                            <MinusIcon className="size-[7vw] md:size-7" />
                           </button>
-                          <span className="min-w-[4vw] text-center text-[3.4vw] text-[#232323]">
+                          <span className="min-w-[4vw] text-center text-[3.4vw] text-[#232323] md:min-w-5 md:text-sm">
                             {quantity}
                           </span>
                         </>
                       ) : null}
                       <button
                         type="button"
-                        className="flex size-[9vw] items-center justify-center text-[#fdbc24] transition-all duration-[400ms] disabled:cursor-not-allowed disabled:opacity-35"
+                        className="flex size-[9vw] items-center justify-center text-[#fdbc24] transition-all duration-[400ms] disabled:cursor-not-allowed disabled:opacity-35 md:size-10"
                         aria-label={
                           product.soldOut
                             ? `${product.name} đã hết hàng`
@@ -211,7 +212,7 @@ export function CatalogBrowser({
                         disabled={product.soldOut}
                         onClick={() => onQuantityChange(product.id, quantity + 1)}
                       >
-                        <PlusIcon className="size-[7vw]" />
+                        <PlusIcon className="size-[7vw] md:size-7" />
                       </button>
                     </div>
                   </article>

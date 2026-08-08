@@ -216,7 +216,7 @@ export function ShoppingCart({
         <button
           type="button"
           disabled={!hasItems}
-          className={`h-12 min-w-[25vw] px-3 text-[3vw] font-bold ${
+          className={`h-12 min-w-[25vw] px-3 text-[3vw] font-bold md:min-w-48 md:text-sm ${
             hasItems
               ? "bg-[#fdbc24] text-[#2b333b]"
               : "cursor-default bg-[#2b333b] text-white/60"

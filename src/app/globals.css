@@ -133,6 +133,13 @@
     min-height: 100dvh;
     overflow: hidden;
   }
+
+  @media (min-width: 768px) {
+    body {
+      background: #eef1f3;
+    }
+  }
+
   html {
     @apply font-sans;
   }

@@ -8,9 +8,9 @@ export const categories: Category[] = [
     id: "social",
     name: "Lưu ảnh ➕ Thêm bạn",
     products: [
-      { id: "wechat", categoryId: "social", name: "WeChat", price: 1, image: image("product-02.jpeg") },
-      { id: "zalo", categoryId: "social", name: "Zalo", price: 1, image: image("product-01.jpeg") },
-      { id: "whatsapp", categoryId: "social", name: "WhatsApp", price: 1, image: image("product-09.jpeg") },
+      { id: "wechat", categoryId: "social", name: "WeChat", price: 1, image: "/images/wechat.jpg" },
+      { id: "zalo", categoryId: "social", name: "Zalo", price: 1, image: "/images/zalo.jpg" },
+      { id: "whatsapp", categoryId: "social", name: "WhatsApp", price: 1, image: "/images/whatapp.jpg" },
     ],
   },
   {

@@ -10,7 +10,7 @@ This block is written and re-added by `next dev`. Removing it from a diff only r
 
 # Minimart
 
-Giao diện đặt hàng trực tuyến cho Cửa hàng tiện lợi Thỏ Nhỏ.
+Giao diện đặt hàng trực tuyến cho Cửa hàng tiện lợi MiniMart.
 
 ## Tech Stack
 

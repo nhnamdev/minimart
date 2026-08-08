@@ -6,13 +6,20 @@ import Image from "next/image";
 import { CloseIcon, GlobeIcon, PhoneIcon, SearchIcon } from "@/components/icons";
 
 interface StoreHeaderProps {
+  fulfillmentMode: "delivery" | "pickup";
+  onFulfillmentModeChange: (mode: "delivery" | "pickup") => void;
   searchTerm: string;
   onSearchChange: (value: string) => void;
 }
 
 const languages = ["Tiếng Việt", "Tiếng Trung", "Tiếng Anh"] as const;
 
-export function StoreHeader({ searchTerm, onSearchChange }: StoreHeaderProps) {
+export function StoreHeader({
+  fulfillmentMode,
+  onFulfillmentModeChange,
+  searchTerm,
+  onSearchChange,
+}: StoreHeaderProps) {
   const [isLanguageOpen, setIsLanguageOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -38,7 +45,7 @@ export function StoreHeader({ searchTerm, onSearchChange }: StoreHeaderProps) {
     <header className="relative isolate overflow-hidden text-white">
       <div
         aria-hidden="true"
-        className="absolute -inset-[2vw] -z-20 blur-[3vw]"
+        className="absolute -inset-[2vw] -z-20 blur-[3vw] md:-inset-6 md:blur-3xl"
       >
         <Image
           src="/images/order-multi/store-avatar.jpg"
@@ -53,22 +60,52 @@ export function StoreHeader({ searchTerm, onSearchChange }: StoreHeaderProps) {
         className="absolute inset-0 -z-10 bg-[rgba(7,17,27,.5)]"
       />
 
-      <div className="flex px-[4vw] pt-[4vw]">
-        <div className="relative size-[18vw] shrink-0 overflow-hidden rounded-[1vw]">
+      <div className="flex px-[4vw] pt-[4vw] md:px-8 md:pt-6">
+        <div className="relative size-[18vw] shrink-0 overflow-hidden rounded-[1vw] md:size-24 md:rounded-lg">
           <Image
-            src="/images/order-multi/store-avatar.jpg"
-            alt="Ảnh đại diện Cửa hàng tiện lợi Thỏ Nhỏ"
+            src="/images/logo.jpg"
+            alt="Ảnh đại diện Cửa hàng tiện lợi MiniMart"
             fill
             sizes="18vw"
             className="object-cover"
           />
         </div>
 
-        <div className="ml-[1.5vw] mr-[1vw] min-w-0 flex-1">
-          <h1 className="text-[4.3vw] leading-[5vw] font-bold">Cửa hàng tiện lợi Thỏ Nhỏ</h1>
-          <div className="mb-[2vw] w-[53vw] text-[3.1vw] leading-[3.3vw]">
+        <div className="ml-[1.5vw] mr-[1vw] min-w-0 flex-1 md:ml-4 md:mr-4">
+          <h1 className="text-[4.3vw] leading-[5vw] font-bold md:text-2xl md:leading-7">Cửa hàng tiện lợi MiniMart</h1>
+          <div className="mb-[2vw] w-[53vw] text-[3.1vw] leading-[3.3vw] md:mb-3 md:w-auto md:text-sm md:leading-5">
             <p>Tiện lợi mỗi ngày</p>
             <p>Thời gian mở cửa: Cả ngày</p>
+            <div
+              role="group"
+              aria-label="Phương thức nhận hàng"
+              className="mt-[2vw] inline-flex overflow-hidden rounded-[2.55vw] border-[.55px] border-white md:mt-3 md:rounded-full"
+            >
+              <button
+                type="button"
+                aria-pressed={fulfillmentMode === "delivery"}
+                onClick={() => onFulfillmentModeChange("delivery")}
+                className={`px-[2.5vw] py-[1.2vw] text-[2.8vw] leading-none font-medium whitespace-nowrap transition-colors md:px-4 md:py-2 md:text-sm ${
+                  fulfillmentMode === "delivery"
+                    ? "bg-[#fdbc24] text-[#20252b]"
+                    : "bg-white/10 text-white"
+                }`}
+              >
+                Giao hàng
+              </button>
+              <button
+                type="button"
+                aria-pressed={fulfillmentMode === "pickup"}
+                onClick={() => onFulfillmentModeChange("pickup")}
+                className={`border-l-[.55px] border-white px-[2.5vw] py-[1.2vw] text-[2.8vw] leading-none font-medium whitespace-nowrap transition-colors md:px-4 md:py-2 md:text-sm ${
+                  fulfillmentMode === "pickup"
+                    ? "bg-[#fdbc24] text-[#20252b]"
+                    : "bg-white/10 text-white"
+                }`}
+              >
+                Tự đến lấy
+              </button>
+            </div>
           </div>
         </div>
 
@@ -77,25 +114,25 @@ export function StoreHeader({ searchTerm, onSearchChange }: StoreHeaderProps) {
           aria-haspopup="dialog"
           aria-expanded={isLanguageOpen}
           onClick={() => setIsLanguageOpen(true)}
-          className="flex shrink-0 items-center self-start gap-[1vw] text-[3vw] leading-[5vw]"
+          className="flex shrink-0 items-center self-start gap-[1vw] text-[3vw] leading-[5vw] md:gap-2 md:text-sm md:leading-6"
         >
-          <GlobeIcon className="size-[3vw]" />
+          <GlobeIcon className="size-[3vw] md:size-4" />
           <span>Ngôn ngữ</span>
         </button>
       </div>
 
-      <div className="flex h-[8vw] items-center justify-end gap-[1.5vw] pr-[5vw] pb-[2vw]">
+      <div className="flex h-[8vw] items-center justify-end gap-[1.5vw] pr-[5vw] pb-[2vw] md:h-14 md:gap-2 md:pr-8 md:pb-4">
         <a
           href="tel:0865016689"
-          className="flex items-center gap-[1vw] rounded-[2.55vw] border-[.55px] border-white px-[2vw] py-[1vw] text-[3vw] leading-none"
+          className="flex items-center gap-[1vw] rounded-[2.55vw] border-[.55px] border-white px-[2vw] py-[1vw] text-[3vw] leading-none md:gap-2 md:rounded-full md:px-4 md:py-2 md:text-sm"
           aria-label="Gọi 0865 016 689"
         >
-          <PhoneIcon className="size-[3vw]" />
+          <PhoneIcon className="size-[3vw] md:size-4" />
           <span>0865016689</span>
         </a>
 
         {isSearchOpen && (
-          <label className="flex items-center rounded-[2.55vw] border-[.55px] border-white px-[2vw] py-[1vw]">
+          <label className="flex items-center rounded-[2.55vw] border-[.55px] border-white px-[2vw] py-[1vw] md:rounded-full md:px-4 md:py-2">
             <span className="sr-only">Tìm kiếm sản phẩm</span>
             <input
               ref={searchInputRef}
@@ -103,7 +140,7 @@ export function StoreHeader({ searchTerm, onSearchChange }: StoreHeaderProps) {
               value={searchTerm}
               onChange={(event) => onSearchChange(event.target.value)}
               placeholder="Tìm kiếm"
-              className="w-[27vw] bg-transparent text-[3vw] leading-none text-white outline-none placeholder:text-white/70"
+              className="w-[27vw] bg-transparent text-[3vw] leading-none text-white outline-none placeholder:text-white/70 md:w-56 md:text-sm"
             />
           </label>
         )}
@@ -113,12 +150,12 @@ export function StoreHeader({ searchTerm, onSearchChange }: StoreHeaderProps) {
           aria-label={isSearchOpen ? "Đóng tìm kiếm" : "Mở tìm kiếm"}
           aria-expanded={isSearchOpen}
           onClick={() => setIsSearchOpen((isOpen) => !isOpen)}
-          className="flex items-center gap-[1vw] rounded-[2.55vw] border-[.55px] border-white px-[2vw] py-[1vw] text-[3vw] leading-none"
+          className="flex items-center gap-[1vw] rounded-[2.55vw] border-[.55px] border-white px-[2vw] py-[1vw] text-[3vw] leading-none md:gap-2 md:rounded-full md:px-4 md:py-2 md:text-sm"
         >
           {isSearchOpen ? (
-            <CloseIcon className="size-[3vw]" />
+            <CloseIcon className="size-[3vw] md:size-4" />
           ) : (
-            <SearchIcon className="size-[3vw]" />
+            <SearchIcon className="size-[3vw] md:size-4" />
           )}
           <span>{isSearchOpen ? "Đóng" : "Tìm kiếm"}</span>
         </button>
@@ -141,20 +178,20 @@ export function StoreHeader({ searchTerm, onSearchChange }: StoreHeaderProps) {
           role="dialog"
           aria-modal="true"
           aria-labelledby="language-dialog-title"
-          className="relative w-[72vw] rounded-[1vw] bg-[#07111b] px-[7vw] py-[6vw] text-center shadow-2xl"
+          className="relative w-[72vw] rounded-[1vw] bg-[#07111b] px-[7vw] py-[6vw] text-center shadow-2xl md:w-[460px] md:rounded-2xl md:px-12 md:py-10"
         >
           <button
             type="button"
             aria-label="Đóng chọn ngôn ngữ"
             onClick={() => setIsLanguageOpen(false)}
-            className="absolute top-[2.5vw] right-[2.5vw] p-[1vw]"
+            className="absolute top-[2.5vw] right-[2.5vw] p-[1vw] md:top-4 md:right-4 md:p-2"
           >
-            <CloseIcon className="size-[5vw]" />
+            <CloseIcon className="size-[5vw] md:size-6" />
           </button>
 
           <h2
             id="language-dialog-title"
-            className="mb-[4vw] text-[4vw] leading-[5vw] font-semibold"
+            className="mb-[4vw] text-[4vw] leading-[5vw] font-semibold md:mb-6 md:text-xl md:leading-7"
           >
             Vui lòng chọn ngôn ngữ
           </h2>
@@ -169,7 +206,7 @@ export function StoreHeader({ searchTerm, onSearchChange }: StoreHeaderProps) {
                   type="button"
                   aria-pressed={isSelected}
                   onClick={() => setIsLanguageOpen(false)}
-                  className={`py-[3vw] text-[3.5vw] leading-[4vw] ${
+                  className={`py-[3vw] text-[3.5vw] leading-[4vw] md:py-4 md:text-base md:leading-6 ${
                     isSelected ? "text-[#f01414]" : "text-white"
                   }`}
                 >

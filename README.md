@@ -1,6 +1,6 @@
 # Minimart
 
-Giao diện đặt hàng trực tuyến bằng tiếng Việt cho Cửa hàng tiện lợi Thỏ Nhỏ. Ứng dụng hỗ trợ chọn giao hàng hoặc tự đến lấy, duyệt danh mục sản phẩm, quản lý giỏ hàng và xác nhận thanh toán.
+Giao diện đặt hàng trực tuyến bằng tiếng Việt cho Cửa hàng tiện lợi MiniMart. Ứng dụng hỗ trợ chọn giao hàng hoặc tự đến lấy, duyệt danh mục sản phẩm, quản lý giỏ hàng và xác nhận thanh toán.
 
 ## Công nghệ
 

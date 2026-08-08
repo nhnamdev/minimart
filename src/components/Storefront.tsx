@@ -32,8 +32,13 @@ export function Storefront() {
   }
 
   return (
-    <main className="flex h-dvh w-full flex-col overflow-hidden bg-white">
-      <StoreHeader searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+    <main className="flex h-dvh w-full flex-col overflow-hidden bg-white md:mx-auto md:max-w-[1180px] md:border-x md:border-black/10 md:shadow-[0_0_32px_rgba(7,17,27,.08)]">
+      <StoreHeader
+        fulfillmentMode={fulfillmentMode}
+        onFulfillmentModeChange={setFulfillmentMode}
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+      />
       <OrderTabs active={activeTab} onChange={setActiveTab} />
 
       {activeTab === "goods" ? (
