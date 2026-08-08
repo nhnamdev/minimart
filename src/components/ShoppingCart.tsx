@@ -7,10 +7,12 @@ import { DeliveryCheckoutDialog } from "@/components/DeliveryCheckoutDialog";
 import { formatVnd } from "@/data/catalog";
 import { CartIcon, CloseIcon, MinusIcon, PlusIcon } from "@/components/icons";
 import { PickupCheckoutDialog } from "@/components/PickupCheckoutDialog";
-import type { CartQuantities, Product } from "@/types/catalog";
+import { useLanguage } from "@/context/LanguageContext";
+import type { CartQuantities, CheckoutDetails, Product } from "@/types/catalog";
 
 interface ShoppingCartProps {
   fulfillmentMode: "delivery" | "pickup";
+  storeAddress: string | null;
   products: Product[];
   quantities: CartQuantities;
   onQuantityChange: (productId: string, next: number) => void;
@@ -19,11 +21,13 @@ interface ShoppingCartProps {
 
 export function ShoppingCart({
   fulfillmentMode,
+  storeAddress,
   products,
   quantities,
   onQuantityChange,
   onClear,
 }: ShoppingCartProps) {
+  const { language, t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [isDeliveryCheckoutOpen, setIsDeliveryCheckoutOpen] = useState(false);
   const [isPickupCheckoutOpen, setIsPickupCheckoutOpen] = useState(false);
@@ -62,6 +66,28 @@ export function ShoppingCart({
     setIsPickupCheckoutOpen(true);
   }
 
+  async function submitOrder(details: CheckoutDetails) {
+    const response = await fetch("/api/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        language,
+        fulfillmentMode,
+        ...details,
+        items: selectedProducts.map((product) => ({
+          productId: product.id,
+          quantity: quantities[product.id] ?? 0,
+        })),
+      }),
+    });
+    if (!response.ok) throw new Error("ORDER_FAILED");
+    const result = await response.json() as { orderCode: string };
+    setIsDeliveryCheckoutOpen(false);
+    setIsPickupCheckoutOpen(false);
+    onClear();
+    setNotice(`${t("orderSuccess")}: ${result.orderCode}`);
+  }
+
   return (
     <>
       {isDeliveryCheckoutOpen && (
@@ -69,10 +95,7 @@ export function ShoppingCart({
           products={products}
           quantities={quantities}
           onCancel={() => setIsDeliveryCheckoutOpen(false)}
-          onConfirm={() => {
-            setIsDeliveryCheckoutOpen(false);
-            setNotice("Đây là bản demo, đơn hàng chưa được gửi đi.");
-          }}
+          onConfirm={submitOrder}
         />
       )}
 
@@ -80,11 +103,9 @@ export function ShoppingCart({
         <PickupCheckoutDialog
           products={products}
           quantities={quantities}
+          storeAddress={storeAddress}
           onCancel={() => setIsPickupCheckoutOpen(false)}
-          onConfirm={() => {
-            setIsPickupCheckoutOpen(false);
-            setNotice("Đây là bản demo, đơn hàng chưa được gửi đi.");
-          }}
+          onConfirm={submitOrder}
         />
       )}
 
@@ -97,7 +118,7 @@ export function ShoppingCart({
         }`}
       >
         <div className="sticky top-0 flex h-12 items-center justify-between border-b border-[#eceff1] bg-white px-4">
-          <h2 className="text-[16px] font-bold text-[#232323]">Giỏ hàng</h2>
+          <h2 className="text-[16px] font-bold text-[#232323]">{t("cart")}</h2>
           <div className="flex items-center gap-3">
             {hasItems && (
               <button
@@ -105,12 +126,12 @@ export function ShoppingCart({
                 className="text-[12px] font-medium text-[#f34c43]"
                 onClick={handleClear}
               >
-                Xóa tất cả
+                {t("clearAll")}
               </button>
             )}
             <button
               type="button"
-              aria-label="Đóng giỏ hàng"
+              aria-label={t("closeCart")}
               className="grid size-8 place-items-center text-[#70767b]"
               onClick={() => setIsOpen(false)}
             >
@@ -144,7 +165,7 @@ export function ShoppingCart({
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
-                      aria-label={`Giảm số lượng ${product.name}`}
+                      aria-label={`${t("decrease")} ${product.name}`}
                       className="grid size-7 place-items-center text-[#777d82]"
                       onClick={() => onQuantityChange(product.id, Math.max(0, quantity - 1))}
                     >
@@ -155,7 +176,7 @@ export function ShoppingCart({
                     </span>
                     <button
                       type="button"
-                      aria-label={`Tăng số lượng ${product.name}`}
+                      aria-label={`${t("increase")} ${product.name}`}
                       className="grid size-7 place-items-center text-[#f4ad00]"
                       onClick={() => onQuantityChange(product.id, quantity + 1)}
                     >
@@ -168,7 +189,7 @@ export function ShoppingCart({
           </div>
         ) : (
           <p className="px-4 py-8 text-center text-[13px] text-[#969b9f]">
-            Giỏ hàng đang trống
+            {t("emptyCart")}
           </p>
         )}
 
@@ -183,7 +204,7 @@ export function ShoppingCart({
         <button
           type="button"
           aria-expanded={isOpen}
-          aria-label={isOpen ? "Đóng giỏ hàng" : "Mở giỏ hàng"}
+          aria-label={isOpen ? t("closeCart") : t("openCart")}
           className="flex min-w-0 flex-1 items-start text-left"
           onClick={() => {
             setIsOpen((current) => !current);
@@ -223,7 +244,7 @@ export function ShoppingCart({
           }`}
           onClick={handleCheckout}
         >
-          {hasItems ? "Thanh toán" : "Từ ₫0"}
+          {hasItems ? t("checkout") : t("fromZero")}
         </button>
       </div>
     </>

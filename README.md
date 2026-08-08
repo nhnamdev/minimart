@@ -1,6 +1,6 @@
 # Minimart
 
-Giao diện đặt hàng trực tuyến bằng tiếng Việt cho Cửa hàng tiện lợi MiniMart. Ứng dụng hỗ trợ chọn giao hàng hoặc tự đến lấy, duyệt danh mục sản phẩm, quản lý giỏ hàng và xác nhận thanh toán.
+Giao diện đặt hàng trực tuyến đa ngôn ngữ cho Cửa hàng tiện lợi MiniMart. Ứng dụng hỗ trợ chọn giao hàng hoặc tự đến lấy, duyệt danh mục sản phẩm, quản lý giỏ hàng, gửi đơn và quản trị nội dung.
 
 ## Công nghệ
 
@@ -8,6 +8,7 @@ Giao diện đặt hàng trực tuyến bằng tiếng Việt cho Cửa hàng ti
 - TypeScript strict
 - Tailwind CSS v4
 - shadcn/ui và Lucide React
+- Express, MySQL 8 và Cloudflare R2
 
 ## Chạy dự án
 
@@ -15,10 +16,13 @@ Yêu cầu Node.js 24 trở lên.
 
 ```bash
 npm install
-npm run dev
+npm run build
+npm start
 ```
 
 Mở `http://localhost:3000`.
+
+Trang quản trị nằm tại `/admin`. Server đọc cấu hình từ `.env`, tự tạo bảng còn thiếu và chỉ seed catalog ban đầu khi database chưa có cửa hàng.
 
 ## Kiểm tra
 

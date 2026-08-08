@@ -1,16 +1,17 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { PhoneIcon } from "@/components/icons";
 import { formatVnd } from "@/data/catalog";
-import type { CartQuantities, Product } from "@/types/catalog";
+import { useLanguage } from "@/context/LanguageContext";
+import type { CartQuantities, CheckoutDetails, Product } from "@/types/catalog";
 
 interface DeliveryCheckoutDialogProps {
   products: Product[];
   quantities: CartQuantities;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm: (details: CheckoutDetails) => Promise<void>;
 }
 
 export function DeliveryCheckoutDialog({
@@ -19,6 +20,13 @@ export function DeliveryCheckoutDialog({
   onCancel,
   onConfirm,
 }: DeliveryCheckoutDialogProps) {
+  const { t } = useLanguage();
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [note, setNote] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
   const selectedProducts = useMemo(
     () => products.filter((product) => (quantities[product.id] ?? 0) > 0),
     [products, quantities],
@@ -39,53 +47,70 @@ export function DeliveryCheckoutDialog({
         aria-modal="true"
         aria-labelledby="delivery-checkout-title"
         className="absolute top-1/2 left-1/2 flex max-h-[94dvh] w-[92vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[2vw] bg-white md:w-[640px] md:rounded-2xl"
-        onSubmit={(event) => {
+        onSubmit={async (event) => {
           event.preventDefault();
-          onConfirm();
+          setIsSubmitting(true);
+          setError("");
+          try {
+            await onConfirm({ customerName, customerPhone, deliveryAddress, note });
+          } catch {
+            setError(t("orderFailed"));
+          } finally {
+            setIsSubmitting(false);
+          }
         }}
       >
         <h2
           id="delivery-checkout-title"
           className="mt-[4.5vw] border-b border-[#eaeaea] pb-[4.5vw] text-center text-[5vw] font-medium text-[#fdbc24] md:mt-6 md:pb-5 md:text-2xl"
         >
-          Xác nhận đơn hàng
+          {t("confirmOrder")}
         </h2>
 
         <div className="min-h-0 w-full flex-1 overflow-y-auto bg-[#f3f3f3] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <section>
             <div className="mx-[2.5vw] mt-[2.5vw] flex bg-white px-[3vw] pt-[3vw] text-[4.3vw] font-medium text-[#fdbc24] md:mx-4 md:mt-4 md:px-5 md:pt-5 md:text-lg">
-              <span className="flex items-center">Thông tin:</span>
+              <span className="flex items-center">{t("information")}</span>
               <span className="ml-auto flex items-center">
                 <a href="tel:0865016689" className="flex items-center gap-[1vw] text-[3.8vw] md:gap-2 md:text-sm">
                   <PhoneIcon className="size-[3.4vw] md:size-4" />
-                  <span>Quán</span>
+                  <span>{t("store")}</span>
                 </a>
               </span>
             </div>
 
             <div className="mx-[2.5vw] mb-[2.5vw] bg-white px-[3vw] pb-[3vw] text-[3.7vw] md:mx-4 md:mb-4 md:px-5 md:pb-5 md:text-sm">
               <label className="flex h-[10vw] items-center border-b border-[#f9f9f9] md:h-12">
-                <span className="min-w-[20vw] whitespace-nowrap md:min-w-28">Tên:</span>
+                <span className="min-w-[20vw] whitespace-nowrap md:min-w-28">{t("name")}</span>
                 <input
                   type="text"
-                  placeholder="Vui lòng nhập tên"
+                  required
+                  value={customerName}
+                  onChange={(event) => setCustomerName(event.target.value)}
+                  placeholder={t("enterName")}
                   className="h-full min-w-0 flex-1 border-0 pl-[1vw] text-[#333] outline-none placeholder:text-[#999] md:pl-2"
                 />
               </label>
               <label className="flex h-[10vw] items-center border-b border-[#f9f9f9] md:h-12">
-                <span className="min-w-[20vw] whitespace-nowrap md:min-w-28">Số ĐT:</span>
+                <span className="min-w-[20vw] whitespace-nowrap md:min-w-28">{t("phone")}</span>
                 <input
                   type="tel"
                   inputMode="tel"
-                  placeholder="Vui lòng nhập số điện thoại"
+                  required
+                  value={customerPhone}
+                  onChange={(event) => setCustomerPhone(event.target.value)}
+                  placeholder={t("enterPhone")}
                   className="h-full min-w-0 flex-1 border-0 pl-[1vw] text-[#333] outline-none placeholder:text-[#999] md:pl-2"
                 />
               </label>
               <label className="flex h-[10vw] items-center border-b border-[#f9f9f9] md:h-12">
-                <span className="min-w-[20vw] whitespace-nowrap md:min-w-28">Địa chỉ:</span>
+                <span className="min-w-[20vw] whitespace-nowrap md:min-w-28">{t("address")}</span>
                 <input
                   type="text"
-                  placeholder="Vui lòng nhập địa chỉ nhận hàng"
+                  required
+                  value={deliveryAddress}
+                  onChange={(event) => setDeliveryAddress(event.target.value)}
+                  placeholder={t("enterAddress")}
                   className="h-full min-w-0 flex-1 border-0 pl-[1vw] text-[#333] outline-none placeholder:text-[#999] md:pl-2"
                 />
               </label>
@@ -94,7 +119,7 @@ export function DeliveryCheckoutDialog({
 
           <section>
             <h3 className="mx-[2.5vw] mt-[2.5vw] bg-white px-[3vw] pt-[3vw] text-[4.3vw] font-medium text-[#fdbc24] md:mx-4 md:mt-4 md:px-5 md:pt-5 md:text-lg">
-              Thêm lần này:
+              {t("addedNow")}
             </h3>
             <div className="mx-[2.5vw] mb-[2.5vw] bg-white p-[3vw] text-[3.7vw] md:mx-4 md:mb-4 md:p-5 md:text-sm">
               {selectedProducts.map((product) => {
@@ -116,9 +141,9 @@ export function DeliveryCheckoutDialog({
               })}
 
               <div className="pt-[3vw] text-right text-[4vw] font-medium text-[#383838] md:pt-4 md:text-base">
-                <span className="mr-[2%]">Số lượng {itemCount}</span>
+                <span className="mr-[2%]">{t("quantity")} {itemCount}</span>
                 <span>
-                  Tạm tính <strong>{formatVnd(subtotal)}</strong>
+                  {t("subtotal")} <strong>{formatVnd(subtotal)}</strong>
                 </span>
               </div>
             </div>
@@ -126,28 +151,31 @@ export function DeliveryCheckoutDialog({
 
           <section>
             <h3 className="mx-[2.5vw] mt-[2.5vw] bg-white px-[3vw] pt-[3vw] text-[4.3vw] font-medium text-[#fdbc24] md:mx-4 md:mt-4 md:px-5 md:pt-5 md:text-lg">
-              Ghi chú:
+              {t("note")}
             </h3>
             <div className="mx-[2.5vw] mb-[2.5vw] flex bg-white p-[3vw] text-[3.7vw] md:mx-4 md:mb-4 md:p-5 md:text-sm">
               <textarea
                 maxLength={100}
-                aria-label="Ghi chú đơn hàng"
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                aria-label={t("orderNote")}
                 className="h-[20vw] flex-1 resize-none border border-[#ccc] bg-white p-0.5 outline-none md:h-28 md:p-2"
               />
             </div>
           </section>
         </div>
 
+        {error ? <p role="alert" className="px-4 pt-3 text-center text-sm text-[#c62828]">{error}</p> : null}
         <div className="mt-[3vw] flex w-full border-t border-[#eaeaea] text-center md:mt-4">
           <button
             type="button"
             onClick={onCancel}
             className="flex-1 border-r border-[#eaeaea] p-[4vw] text-[5vw] font-medium text-[#666] md:p-4 md:text-lg"
           >
-            Huỷ
+            {t("cancel")}
           </button>
-          <button type="submit" className="flex-1 p-[4vw] text-[5vw] font-medium text-[#fdbc24] md:p-4 md:text-lg">
-            Xác nhận
+          <button type="submit" disabled={isSubmitting} className="flex-1 p-[4vw] text-[5vw] font-medium text-[#fdbc24] disabled:opacity-50 md:p-4 md:text-lg">
+            {isSubmitting ? t("sending") : t("confirm")}
           </button>
         </div>
       </form>

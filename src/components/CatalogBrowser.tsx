@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { formatVnd } from "@/data/catalog";
+import { useLanguage } from "@/context/LanguageContext";
 import type { CartQuantities, Category, Product } from "@/types/catalog";
 
 import { CloseIcon, MinusIcon, PlusIcon } from "./icons";
@@ -21,6 +22,7 @@ export function CatalogBrowser({
   quantities,
   onQuantityChange,
 }: CatalogBrowserProps) {
+  const { t } = useLanguage();
   const paneRef = useRef<HTMLDivElement>(null);
   const [activeCategory, setActiveCategory] = useState(categories[0]?.id ?? "");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -104,7 +106,7 @@ export function CatalogBrowser({
     <>
       <div className="flex min-h-0 flex-1 overflow-hidden pb-[48px]">
         <nav
-          aria-label="Danh mục sản phẩm"
+          aria-label={t("categories")}
           className="w-1/5 shrink-0 overflow-y-auto bg-[#f3f5f7] md:w-60"
         >
           {visibleCategories.map((category) => {
@@ -127,6 +129,11 @@ export function CatalogBrowser({
         </nav>
 
         <div ref={paneRef} className="min-w-0 flex-1 overflow-y-auto bg-white">
+          {visibleCategories.length === 0 ? (
+            <p className="grid min-h-48 place-items-center px-6 text-center text-sm text-[#7b8389]">
+              {t("emptyCatalog")}
+            </p>
+          ) : null}
           {visibleCategories.map((category) => (
             <section
               key={category.id}
@@ -150,7 +157,7 @@ export function CatalogBrowser({
                     <button
                       type="button"
                       className="ml-[2vw] shrink-0 rounded-[1vw] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#fdbc24] md:ml-0 md:rounded-lg"
-                      aria-label={`Xem ${product.name}`}
+                      aria-label={`${t("view")} ${product.name}`}
                       onClick={() => setSelectedProduct(product)}
                     >
                       <Image
@@ -183,14 +190,14 @@ export function CatalogBrowser({
 
                     <div
                       className="ml-[1vw] flex shrink-0 items-center justify-end gap-[0.4vw] md:ml-1 md:gap-0"
-                      aria-label={`Số lượng ${product.name}`}
+                      aria-label={`${t("quantity")} ${product.name}`}
                     >
                       {quantity > 0 ? (
                         <>
                           <button
                             type="button"
                             className="flex size-[9vw] animate-in items-center justify-center text-[#fdbc24] transition-all duration-[400ms] spin-in-90 disabled:cursor-not-allowed disabled:opacity-35 md:size-10"
-                            aria-label={`Giảm một ${product.name}`}
+                            aria-label={`${t("decrease")} ${product.name}`}
                             disabled={product.soldOut}
                             onClick={() => onQuantityChange(product.id, quantity - 1)}
                           >
@@ -206,8 +213,8 @@ export function CatalogBrowser({
                         className="flex size-[9vw] items-center justify-center text-[#fdbc24] transition-all duration-[400ms] disabled:cursor-not-allowed disabled:opacity-35 md:size-10"
                         aria-label={
                           product.soldOut
-                            ? `${product.name} đã hết hàng`
-                            : `Thêm một ${product.name}`
+                            ? `${product.name} ${t("soldOut")}`
+                            : `${t("increase")} ${product.name}`
                         }
                         disabled={product.soldOut}
                         onClick={() => onQuantityChange(product.id, quantity + 1)}
@@ -237,7 +244,7 @@ export function CatalogBrowser({
           >
             <button
               type="button"
-              aria-label="Đóng chi tiết sản phẩm"
+              aria-label={t("closeProduct")}
               className="absolute top-3 right-3 z-10 flex size-10 items-center justify-center rounded-full bg-white/90 text-[#232323] shadow"
               onClick={() => setSelectedProduct(null)}
             >

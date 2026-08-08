@@ -4,22 +4,26 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 
 import { CloseIcon, GlobeIcon, PhoneIcon, SearchIcon } from "@/components/icons";
+import { useLanguage } from "@/context/LanguageContext";
+import { languageOptions } from "@/lib/i18n";
+import type { SiteContent } from "@/types/catalog";
 
 interface StoreHeaderProps {
+  site: SiteContent;
   fulfillmentMode: "delivery" | "pickup";
   onFulfillmentModeChange: (mode: "delivery" | "pickup") => void;
   searchTerm: string;
   onSearchChange: (value: string) => void;
 }
 
-const languages = ["Tiếng Việt", "Tiếng Trung", "Tiếng Anh"] as const;
-
 export function StoreHeader({
+  site,
   fulfillmentMode,
   onFulfillmentModeChange,
   searchTerm,
   onSearchChange,
 }: StoreHeaderProps) {
+  const { language, setLanguage, t } = useLanguage();
   const [isLanguageOpen, setIsLanguageOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -48,7 +52,7 @@ export function StoreHeader({
         className="absolute -inset-[2vw] -z-20 blur-[3vw] md:-inset-6 md:blur-3xl"
       >
         <Image
-          src="/images/order-multi/store-avatar.jpg"
+          src={site.coverImageUrl || "/images/order-multi/store-avatar.jpg"}
           alt=""
           fill
           sizes="100vw"
@@ -63,8 +67,8 @@ export function StoreHeader({
       <div className="flex px-[4vw] pt-[4vw] md:px-8 md:pt-6">
         <div className="relative size-[18vw] shrink-0 overflow-hidden rounded-[1vw] md:size-24 md:rounded-lg">
           <Image
-            src="/images/logo.jpg"
-            alt="Ảnh đại diện Cửa hàng tiện lợi MiniMart"
+            src={site.logoUrl || "/images/logo.jpg"}
+            alt={site.name}
             fill
             sizes="18vw"
             className="object-cover"
@@ -72,13 +76,13 @@ export function StoreHeader({
         </div>
 
         <div className="ml-[1.5vw] mr-[1vw] min-w-0 flex-1 md:ml-4 md:mr-4">
-          <h1 className="text-[4.3vw] leading-[5vw] font-bold md:text-2xl md:leading-7">Cửa hàng tiện lợi MiniMart</h1>
+          <h1 className="text-[4.3vw] leading-[5vw] font-bold md:text-2xl md:leading-7">{site.name}</h1>
           <div className="mb-[2vw] w-[53vw] text-[3.1vw] leading-[3.3vw] md:mb-3 md:w-auto md:text-sm md:leading-5">
-            <p>Tiện lợi mỗi ngày</p>
-            <p>Thời gian mở cửa: Cả ngày</p>
+            <p>{site.tagline}</p>
+            <p>{t("deliveryHours")}: {site.openingHours}</p>
             <div
               role="group"
-              aria-label="Phương thức nhận hàng"
+              aria-label={t("fulfillment")}
               className="mt-[2vw] inline-flex overflow-hidden rounded-[2.55vw] border-[.55px] border-white md:mt-3 md:rounded-full"
             >
               <button
@@ -91,7 +95,7 @@ export function StoreHeader({
                     : "bg-white/10 text-white"
                 }`}
               >
-                Giao hàng
+                {t("delivery")}
               </button>
               <button
                 type="button"
@@ -103,7 +107,7 @@ export function StoreHeader({
                     : "bg-white/10 text-white"
                 }`}
               >
-                Tự đến lấy
+                {t("pickup")}
               </button>
             </div>
           </div>
@@ -117,29 +121,29 @@ export function StoreHeader({
           className="flex shrink-0 items-center self-start gap-[1vw] text-[3vw] leading-[5vw] md:gap-2 md:text-sm md:leading-6"
         >
           <GlobeIcon className="size-[3vw] md:size-4" />
-          <span>Ngôn ngữ</span>
+          <span>{t("language")}</span>
         </button>
       </div>
 
       <div className="flex h-[8vw] items-center justify-end gap-[1.5vw] pr-[5vw] pb-[2vw] md:h-14 md:gap-2 md:pr-8 md:pb-4">
         <a
-          href="tel:0865016689"
+          href={`tel:${site.phone}`}
           className="flex items-center gap-[1vw] rounded-[2.55vw] border-[.55px] border-white px-[2vw] py-[1vw] text-[3vw] leading-none md:gap-2 md:rounded-full md:px-4 md:py-2 md:text-sm"
-          aria-label="Gọi 0865 016 689"
+          aria-label={`${t("contact")} ${site.phone}`}
         >
           <PhoneIcon className="size-[3vw] md:size-4" />
-          <span>0865016689</span>
+          <span>{site.phone}</span>
         </a>
 
         {isSearchOpen && (
           <label className="flex items-center rounded-[2.55vw] border-[.55px] border-white px-[2vw] py-[1vw] md:rounded-full md:px-4 md:py-2">
-            <span className="sr-only">Tìm kiếm sản phẩm</span>
+            <span className="sr-only">{t("searchProducts")}</span>
             <input
               ref={searchInputRef}
               type="search"
               value={searchTerm}
               onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="Tìm kiếm"
+              placeholder={t("search")}
               className="w-[27vw] bg-transparent text-[3vw] leading-none text-white outline-none placeholder:text-white/70 md:w-56 md:text-sm"
             />
           </label>
@@ -147,7 +151,7 @@ export function StoreHeader({
 
         <button
           type="button"
-          aria-label={isSearchOpen ? "Đóng tìm kiếm" : "Mở tìm kiếm"}
+          aria-label={isSearchOpen ? t("close") : t("search")}
           aria-expanded={isSearchOpen}
           onClick={() => setIsSearchOpen((isOpen) => !isOpen)}
           className="flex items-center gap-[1vw] rounded-[2.55vw] border-[.55px] border-white px-[2vw] py-[1vw] text-[3vw] leading-none md:gap-2 md:rounded-full md:px-4 md:py-2 md:text-sm"
@@ -157,7 +161,7 @@ export function StoreHeader({
           ) : (
             <SearchIcon className="size-[3vw] md:size-4" />
           )}
-          <span>{isSearchOpen ? "Đóng" : "Tìm kiếm"}</span>
+          <span>{isSearchOpen ? t("close") : t("search")}</span>
         </button>
       </div>
 
@@ -182,7 +186,7 @@ export function StoreHeader({
         >
           <button
             type="button"
-            aria-label="Đóng chọn ngôn ngữ"
+            aria-label={t("closeLanguage")}
             onClick={() => setIsLanguageOpen(false)}
             className="absolute top-[2.5vw] right-[2.5vw] p-[1vw] md:top-4 md:right-4 md:p-2"
           >
@@ -193,24 +197,27 @@ export function StoreHeader({
             id="language-dialog-title"
             className="mb-[4vw] text-[4vw] leading-[5vw] font-semibold md:mb-6 md:text-xl md:leading-7"
           >
-            Vui lòng chọn ngôn ngữ
+            {t("chooseLanguage")}
           </h2>
 
           <div className="flex flex-col divide-y divide-white/20">
-            {languages.map((language) => {
-              const isSelected = language === "Tiếng Việt";
+            {languageOptions.map((option) => {
+              const isSelected = option.code === language;
 
               return (
                 <button
-                  key={language}
+                  key={option.code}
                   type="button"
                   aria-pressed={isSelected}
-                  onClick={() => setIsLanguageOpen(false)}
+                  onClick={() => {
+                    setLanguage(option.code);
+                    setIsLanguageOpen(false);
+                  }}
                   className={`py-[3vw] text-[3.5vw] leading-[4vw] md:py-4 md:text-base md:leading-6 ${
                     isSelected ? "text-[#f01414]" : "text-white"
                   }`}
                 >
-                  {language}
+                  {option.label}
                 </button>
               );
             })}

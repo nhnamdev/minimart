@@ -1,19 +1,21 @@
 "use client";
 
+import { useLanguage } from "@/context/LanguageContext";
+
 interface OrderTabsProps {
   active: "goods" | "orders";
   onChange: (active: "goods" | "orders") => void;
 }
 
-const tabs = [
-  { id: "goods", label: "Đặt hàng" },
-  { id: "orders", label: "Đơn hàng" },
-] as const;
-
 export function OrderTabs({ active, onChange }: OrderTabsProps) {
+  const { t } = useLanguage();
+  const tabs = [
+    { id: "goods", label: t("goods") },
+    { id: "orders", label: t("orders") },
+  ] as const;
   return (
     <nav
-      aria-label="Điều hướng đặt hàng"
+      aria-label={t("orders")}
       className="flex h-[6vh] w-full border-b border-[rgba(7,17,27,.1)] md:h-14"
     >
       {tabs.map((tab, index) => (

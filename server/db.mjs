@@ -1,0 +1,137 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import bcrypt from "bcryptjs";
+import mysql from "mysql2/promise";
+
+import { config } from "./config.mjs";
+import { initialCategories, initialSite } from "./seed-data.mjs";
+
+const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
+
+export const pool = mysql.createPool({
+  host: config.database.host,
+  port: config.database.port,
+  database: config.database.name,
+  user: config.database.user,
+  password: config.database.password,
+  charset: "utf8mb4",
+  connectionLimit: 10,
+  enableKeepAlive: true,
+  decimalNumbers: true,
+});
+
+async function applySchema() {
+  const schemaPath = path.resolve(currentDirectory, "../database/schema.sql");
+  const schema = await readFile(schemaPath, "utf8");
+  const statements = schema
+    .split(/;\s*(?:\r?\n|$)/)
+    .map((statement) => statement.trim())
+    .filter(Boolean);
+
+  const connection = await pool.getConnection();
+  try {
+    for (const statement of statements) {
+      await connection.query(statement);
+    }
+  } finally {
+    connection.release();
+  }
+}
+
+async function ensureAdmin() {
+  const [rows] = await pool.execute(
+    "SELECT id FROM admin_users WHERE username = ? LIMIT 1",
+    [config.admin.username],
+  );
+  if (rows.length > 0) return;
+
+  const passwordHash = await bcrypt.hash(config.admin.password, 12);
+  await pool.execute(
+    "INSERT INTO admin_users (username, password_hash) VALUES (?, ?)",
+    [config.admin.username, passwordHash],
+  );
+}
+
+async function seedCatalog() {
+  const [siteRows] = await pool.query("SELECT id FROM sites ORDER BY id LIMIT 1");
+  if (siteRows.length > 0) return;
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [siteResult] = await connection.execute(
+      `INSERT INTO sites
+        (phone, currency_code, timezone, logo_url, cover_image_url)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        initialSite.phone,
+        initialSite.currencyCode,
+        initialSite.timezone,
+        initialSite.logoUrl,
+        initialSite.coverImageUrl,
+      ],
+    );
+    const siteId = siteResult.insertId;
+
+    for (const [languageCode, translation] of Object.entries(initialSite.translations)) {
+      await connection.execute(
+        `INSERT INTO site_translations
+          (site_id, language_code, name, tagline, opening_hours, address, seo_title, seo_description)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          siteId,
+          languageCode,
+          translation.name,
+          translation.tagline,
+          translation.openingHours,
+          translation.address,
+          translation.seoTitle,
+          translation.seoDescription,
+        ],
+      );
+    }
+
+    for (const [categoryIndex, category] of initialCategories.entries()) {
+      const [categoryResult] = await connection.execute(
+        "INSERT INTO categories (site_id, slug, sort_order) VALUES (?, ?, ?)",
+        [siteId, category.slug, categoryIndex + 1],
+      );
+      const categoryId = categoryResult.insertId;
+      await connection.execute(
+        "INSERT INTO category_translations (category_id, language_code, name) VALUES (?, 'vi', ?)",
+        [categoryId, category.name],
+      );
+
+      for (const [productIndex, product] of category.products.entries()) {
+        const [slug, name, description, price, imageUrl] = product;
+        const [productResult] = await connection.execute(
+          `INSERT INTO products
+            (category_id, slug, price, image_url, sort_order)
+           VALUES (?, ?, ?, ?, ?)`,
+          [categoryId, slug, price, imageUrl, productIndex + 1],
+        );
+        await connection.execute(
+          `INSERT INTO product_translations
+            (product_id, language_code, name, description)
+           VALUES (?, 'vi', ?, ?)`,
+          [productResult.insertId, name, description],
+        );
+      }
+    }
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+export async function initializeDatabase() {
+  await applySchema();
+  await ensureAdmin();
+  await seedCatalog();
+}
