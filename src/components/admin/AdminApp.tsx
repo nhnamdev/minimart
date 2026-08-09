@@ -2,20 +2,35 @@
 
 import Image from "next/image";
 import {
+  ChevronDown,
+  ClipboardList,
   ImagePlus,
+  Layers3,
   LogOut,
   Package,
   Pencil,
   Plus,
+  RefreshCw,
   Save,
+  ShoppingBag,
   Store,
   Trash2,
+  Truck,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { languageOptions } from "@/lib/i18n";
-import type { AdminCategory, AdminData, AdminProduct, AdminTranslations } from "@/types/admin";
+import type {
+  AdminCategory,
+  AdminData,
+  AdminOrder,
+  AdminOrdersResponse,
+  AdminProduct,
+  AdminTranslations,
+  FulfillmentMode,
+  OrderStatus,
+} from "@/types/admin";
 import type { LanguageCode } from "@/types/catalog";
 
 const inputClass = "w-full rounded-lg border border-[#ccd1d5] bg-white px-3 py-2.5 text-sm text-[#232323] outline-none transition focus:border-[#d79a00] focus:ring-2 focus:ring-[#fdbc24]/25 placeholder:text-[#777f86]";
@@ -200,7 +215,7 @@ function ProductEditor({
             </label>
             <label className={labelClass}>Danh mục
               <select className={inputClass} value={draft.categoryId} onChange={(event) => setDraft({ ...draft, categoryId: event.target.value })} required>
-                {categories.map((category) => <option key={category.id} value={category.id}>{category.translations.vi?.name || category.slug}</option>)}
+                {categories.map((category) => <option key={category.id} value={category.id}>{category.translations.vi?.name || category.slug}{category.active ? "" : " (đang ẩn)"}</option>)}
               </select>
             </label>
             <label className={labelClass}>Slug
@@ -304,7 +319,193 @@ function ProductsPanel({ data, onChange }: { data: AdminData; onChange: (data: A
           ))}
         </div>
       )}
-      {editing !== undefined ? <ProductEditor product={editing} categories={data.categories.filter((category) => category.active)} onClose={() => setEditing(undefined)} onSaved={(next) => { onChange(next); setEditing(undefined); }} /> : null}
+      {editing !== undefined ? <ProductEditor product={editing} categories={data.categories} onClose={() => setEditing(undefined)} onSaved={(next) => { onChange(next); setEditing(undefined); }} /> : null}
+    </section>
+  );
+}
+
+const orderStatusLabels: Record<OrderStatus, string> = {
+  pending: "Chờ xác nhận",
+  confirmed: "Đã xác nhận",
+  preparing: "Đang chuẩn bị",
+  ready: "Sẵn sàng",
+  completed: "Hoàn thành",
+  cancelled: "Đã huỷ",
+};
+
+const orderStatusClasses: Record<OrderStatus, string> = {
+  pending: "bg-[#fff5d6] text-[#8a5b00]",
+  confirmed: "bg-[#e8f1ff] text-[#1859a9]",
+  preparing: "bg-[#f1eaff] text-[#6d3eb3]",
+  ready: "bg-[#e7f8f0] text-[#18724b]",
+  completed: "bg-[#e7f6ea] text-[#26733d]",
+  cancelled: "bg-[#fff0ef] text-[#b42318]",
+};
+
+function formatMoney(value: number) {
+  return `${new Intl.NumberFormat("vi-VN").format(value)}₫`;
+}
+
+function formatOrderTime(value: string) {
+  return new Intl.DateTimeFormat("vi-VN", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date(value));
+}
+
+function OrderCard({ order }: { order: AdminOrder }) {
+  const [expanded, setExpanded] = useState(false);
+  const isDelivery = order.fulfillmentMode === "delivery";
+
+  return (
+    <article className="overflow-hidden rounded-xl border border-[#dfe3e6] bg-white">
+      <button
+        type="button"
+        onClick={() => setExpanded((current) => !current)}
+        aria-expanded={expanded}
+        className="grid w-full gap-4 p-4 text-left hover:bg-[#fafbfb] sm:grid-cols-[1fr_auto] sm:items-center"
+      >
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="font-bold text-[#20252b]">#{order.orderCode}</h2>
+            <span className={`rounded-md px-2 py-1 text-xs font-bold ${isDelivery ? "bg-[#eaf2ff] text-[#1d5ea8]" : "bg-[#fff4d5] text-[#8a5b00]"}`}>
+              {isDelivery ? "Giao hàng" : "Nhận tại cửa hàng"}
+            </span>
+            <span className={`rounded-md px-2 py-1 text-xs font-bold ${orderStatusClasses[order.status]}`}>
+              {orderStatusLabels[order.status]}
+            </span>
+          </div>
+          <p className="mt-2 text-sm font-semibold text-[#343a40]">{order.customerName} · {order.customerPhone}</p>
+          <p className="mt-1 text-xs text-[#7a8289]">{formatOrderTime(order.createdAt)} · {order.items.length} mặt hàng</p>
+        </div>
+        <div className="flex items-center justify-between gap-4 sm:justify-end">
+          <strong className="text-base text-[#20252b]">{formatMoney(order.total)}</strong>
+          <ChevronDown className={`size-5 text-[#687078] transition ${expanded ? "rotate-180" : ""}`} />
+        </div>
+      </button>
+
+      {expanded ? (
+        <div className="border-t border-[#e5e8ea] bg-[#fbfcfc] p-4 sm:p-5">
+          <div className="grid gap-4 lg:grid-cols-[1fr_1.3fr]">
+            <section className="rounded-lg border border-[#e1e5e8] bg-white p-4">
+              <h3 className="text-sm font-bold text-[#2a3035]">Thông tin nhận hàng</h3>
+              <div className="mt-3 grid gap-2 text-sm text-[#535c63]">
+                <p><span className="font-semibold text-[#30363b]">Khách hàng:</span> {order.customerName}</p>
+                <p><span className="font-semibold text-[#30363b]">Điện thoại:</span> <a href={`tel:${order.customerPhone}`} className="text-[#1859a9] hover:underline">{order.customerPhone}</a></p>
+                <div className="flex items-start gap-2">
+                  {isDelivery ? <Truck className="mt-0.5 size-4 shrink-0" /> : <Store className="mt-0.5 size-4 shrink-0" />}
+                  <p>{isDelivery ? order.deliveryAddress : "Khách nhận trực tiếp tại cửa hàng"}</p>
+                </div>
+                {order.customerNote ? <p className="rounded-md bg-[#fff8e7] px-3 py-2"><span className="font-semibold">Ghi chú:</span> {order.customerNote}</p> : null}
+                <p className="text-xs text-[#7a8289]">Ngôn ngữ đặt hàng: {order.languageCode}</p>
+              </div>
+            </section>
+
+            <section className="rounded-lg border border-[#e1e5e8] bg-white p-4">
+              <h3 className="text-sm font-bold text-[#2a3035]">Sản phẩm</h3>
+              <div className="mt-3 divide-y divide-[#edf0f2]">
+                {order.items.map((item) => (
+                  <div key={item.id} className="grid grid-cols-[1fr_auto] gap-3 py-3 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-[#343a40]">{item.productName}</p>
+                      <p className="mt-1 text-xs text-[#747c83]">{formatMoney(item.unitPrice)} × {item.quantity}</p>
+                    </div>
+                    <p className="font-semibold text-[#30363b]">{formatMoney(item.lineTotal)}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 flex items-center justify-between border-t border-[#dfe3e6] pt-4">
+                <span className="font-bold text-[#30363b]">Tổng cộng</span>
+                <strong className="text-lg text-[#20252b]">{formatMoney(order.total)}</strong>
+              </div>
+            </section>
+          </div>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function OrdersPanel() {
+  const [ordersData, setOrdersData] = useState<AdminOrdersResponse | null>(null);
+  const [query, setQuery] = useState("");
+  const [fulfillmentMode, setFulfillmentMode] = useState<"" | FulfillmentMode>("");
+  const [page, setPage] = useState(1);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setIsLoading(true);
+      setError("");
+      const params = new URLSearchParams({ page: String(page) });
+      if (query.trim()) params.set("search", query.trim());
+      if (fulfillmentMode) params.set("fulfillmentMode", fulfillmentMode);
+      try {
+        const next = await jsonRequest<AdminOrdersResponse>(`/api/admin/orders?${params}`, { signal: controller.signal });
+        setOrdersData(next);
+      } catch (requestError) {
+        if (requestError instanceof DOMException && requestError.name === "AbortError") return;
+        setError("Không thể tải danh sách đơn hàng.");
+      } finally {
+        if (!controller.signal.aborted) setIsLoading(false);
+      }
+    }, 250);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [fulfillmentMode, page, query, reloadKey]);
+
+  function changeMode(mode: "" | FulfillmentMode) {
+    setFulfillmentMode(mode);
+    setPage(1);
+  }
+
+  return (
+    <section>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-[#20252b]">Đơn đặt hàng</h1>
+          <p className="mt-1 text-sm text-[#687078]">Theo dõi đơn giao hàng và đơn khách đến nhận tại cửa hàng.</p>
+        </div>
+        <button type="button" onClick={() => setReloadKey((value) => value + 1)} className="flex items-center justify-center gap-2 rounded-lg border border-[#cfd4d8] bg-white px-4 py-2.5 text-sm font-bold text-[#3e464d] hover:bg-[#f7f8f9]">
+          <RefreshCw className={`size-4 ${isLoading ? "animate-spin" : ""}`} /> Làm mới
+        </button>
+      </div>
+
+      <div className="mt-6 grid gap-3 rounded-xl border border-[#dfe3e6] bg-white p-4 sm:grid-cols-[1fr_auto]">
+        <label className={labelClass}>Tìm đơn hàng
+          <input className={inputClass} value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Mã đơn, tên khách hoặc số điện thoại" />
+        </label>
+        <div className="flex flex-wrap items-end gap-2" aria-label="Lọc phương thức nhận hàng">
+          {([{"value":"","label":"Tất cả"},{"value":"delivery","label":"Giao hàng"},{"value":"pickup","label":"Pick up"}] as const).map((option) => (
+            <button key={option.value || "all"} type="button" onClick={() => changeMode(option.value)} className={`rounded-lg px-4 py-2.5 text-sm font-bold ${fulfillmentMode === option.value ? "bg-[#fdbc24] text-[#20252b]" : "bg-[#eef1f3] text-[#505960] hover:bg-[#e3e7e9]"}`}>{option.label}</button>
+          ))}
+        </div>
+      </div>
+
+      {ordersData ? <p className="mt-4 text-sm text-[#687078]">{ordersData.total} đơn hàng</p> : null}
+      {error ? <p role="alert" className="mt-4 rounded-lg bg-[#fff0ef] px-4 py-3 text-sm text-[#b42318]">{error}</p> : null}
+      {isLoading && !ordersData ? <div className="mt-4 grid gap-3"><div className="h-28 animate-pulse rounded-xl bg-white" /><div className="h-28 animate-pulse rounded-xl bg-white" /></div> : null}
+      {!isLoading && ordersData?.orders.length === 0 ? (
+        <div className="mt-6 rounded-xl border border-dashed border-[#cbd1d5] bg-white px-6 py-14 text-center">
+          <ShoppingBag className="mx-auto size-9 text-[#929aa0]" />
+          <p className="mt-3 font-semibold text-[#596168]">Chưa có đơn hàng phù hợp.</p>
+        </div>
+      ) : null}
+      {ordersData?.orders.length ? <div className={`mt-4 grid gap-3 ${isLoading ? "opacity-60" : ""}`}>{ordersData.orders.map((order) => <OrderCard key={order.id} order={order} />)}</div> : null}
+
+      {ordersData && ordersData.totalPages > 1 ? (
+        <div className="mt-6 flex items-center justify-center gap-3">
+          <button type="button" disabled={ordersData.page <= 1 || isLoading} onClick={() => setPage((value) => Math.max(1, value - 1))} className="rounded-lg border border-[#cfd4d8] bg-white px-4 py-2 text-sm font-semibold disabled:opacity-45">Trang trước</button>
+          <span className="text-sm text-[#596168]">Trang {ordersData.page}/{ordersData.totalPages}</span>
+          <button type="button" disabled={ordersData.page >= ordersData.totalPages || isLoading} onClick={() => setPage((value) => value + 1)} className="rounded-lg border border-[#cfd4d8] bg-white px-4 py-2 text-sm font-semibold disabled:opacity-45">Trang sau</button>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -388,16 +589,27 @@ function ContentPanel({ data, onChange }: { data: AdminData; onChange: (data: Ad
           <button disabled={isSaving} className="flex items-center justify-center gap-2 rounded-lg bg-[#fdbc24] px-5 py-2.5 font-bold text-[#20252b] hover:bg-[#efae14] active:translate-y-px disabled:opacity-60"><Save className="size-4" /> {isSaving ? "Đang lưu..." : "Lưu nội dung"}</button>
         </div>
       </form>
-      <CategoryEditor data={data} onChange={onChange} />
     </section>
   );
 }
 
-function CategoryEditor({ data, onChange }: { data: AdminData; onChange: (data: AdminData) => void }) {
+function CategoriesPanel({ data, onChange }: { data: AdminData; onChange: (data: AdminData) => void }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<AdminCategory | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
+
+  function create() {
+    setEditingId("new");
+    setDraft({
+      id: "",
+      slug: "",
+      sortOrder: data.categories.length,
+      active: true,
+      translations: emptyTranslations(),
+    });
+    setError("");
+  }
 
   function edit(category: AdminCategory) {
     setEditingId(category.id);
@@ -410,50 +622,122 @@ function CategoryEditor({ data, onChange }: { data: AdminData; onChange: (data: 
     setIsSaving(true);
     setError("");
     try {
-      const next = await jsonRequest<AdminData>(`/api/admin/categories/${draft.id}`, {
-        method: "PUT",
+      const isNew = !draft.id;
+      const next = await jsonRequest<AdminData>(isNew ? "/api/admin/categories" : `/api/admin/categories/${draft.id}`, {
+        method: isNew ? "POST" : "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(draft),
       });
       onChange(next);
       setEditingId(null);
       setDraft(null);
-    } catch {
-      setError("Không thể lưu danh mục.");
+    } catch (requestError) {
+      const code = requestError instanceof Error ? requestError.message : "REQUEST_FAILED";
+      setError(code === "DUPLICATE_VALUE"
+        ? "Slug danh mục đã tồn tại."
+        : "Không thể lưu danh mục. Kiểm tra tên tiếng Việt và slug.");
     } finally {
       setIsSaving(false);
     }
   }
 
+  async function remove(category: AdminCategory) {
+    const productCount = data.products.filter((product) => product.categoryId === category.id).length;
+    if (productCount > 0) {
+      setError(`Không thể xoá "${category.translations.vi?.name || category.slug}" vì còn ${productCount} sản phẩm. Hãy chuyển hoặc xoá sản phẩm trước.`);
+      return;
+    }
+    if (!window.confirm(`Xoá danh mục "${category.translations.vi?.name || category.slug}"?`)) return;
+    setError("");
+    try {
+      await jsonRequest(`/api/admin/categories/${category.id}`, { method: "DELETE" });
+      onChange({ ...data, categories: data.categories.filter((item) => item.id !== category.id) });
+      if (editingId === category.id) {
+        setEditingId(null);
+        setDraft(null);
+      }
+    } catch (requestError) {
+      const code = requestError instanceof Error ? requestError.message : "REQUEST_FAILED";
+      setError(code === "CATEGORY_NOT_EMPTY"
+        ? "Danh mục vẫn còn sản phẩm nên chưa thể xoá."
+        : "Không thể xoá danh mục.");
+    }
+  }
+
   return (
-    <div>
-      <h2 className="text-lg font-bold text-[#20252b]">Tên danh mục</h2>
-      <div className="mt-4 grid gap-3">
+    <section>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-[#20252b]">Danh mục sản phẩm</h1>
+          <p className="mt-1 text-sm text-[#687078]">Thêm, sửa, ẩn/hiện và sắp xếp danh mục theo 4 ngôn ngữ.</p>
+        </div>
+        <button type="button" onClick={create} disabled={editingId !== null} className="flex items-center justify-center gap-2 rounded-lg bg-[#fdbc24] px-4 py-3 font-bold text-[#20252b] hover:bg-[#efae14] disabled:cursor-not-allowed disabled:opacity-50"><Plus className="size-4" /> Thêm danh mục</button>
+      </div>
+      {error ? <p role="alert" className="mt-4 rounded-lg bg-[#fff0ef] px-4 py-3 text-sm text-[#b42318]">{error}</p> : null}
+      <div className="mt-6 grid gap-3">
+        {editingId === "new" && draft ? <div className="rounded-xl border border-[#d79a00] bg-white p-4"><CategoryForm draft={draft} isSaving={isSaving} onChange={setDraft} onCancel={() => { setEditingId(null); setDraft(null); }} onSave={() => void save()} /></div> : null}
         {data.categories.map((category) => (
           <article key={category.id} className="rounded-xl border border-[#dfe3e6] bg-white p-4">
             {editingId === category.id && draft ? (
-              <div className="grid gap-4">
-                <div className="grid gap-3 md:grid-cols-2">
-                  {languageOptions.map((option) => <label key={option.code} className={labelClass}>{option.label}<input className={inputClass} value={draft.translations[option.code]?.name ?? ""} onChange={(event) => setDraft({ ...draft, translations: { ...draft.translations, [option.code]: { ...draft.translations[option.code], name: event.target.value } } })} /></label>)}
-                </div>
-                <div className="flex flex-wrap items-center gap-4">
-                  <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={draft.active} onChange={(event) => setDraft({ ...draft, active: event.target.checked })} className="size-4 accent-[#d79a00]" /> Hiển thị</label>
-                  <label className="flex items-center gap-2 text-sm font-semibold">Thứ tự <input className={`${inputClass} w-24`} type="number" min="0" value={draft.sortOrder} onChange={(event) => setDraft({ ...draft, sortOrder: Number(event.target.value) })} /></label>
-                  <span className="flex-1" />
-                  <button type="button" onClick={() => { setEditingId(null); setDraft(null); }} className="rounded-lg border border-[#cfd4d8] px-4 py-2 text-sm font-semibold">Huỷ</button>
-                  <button type="button" disabled={isSaving} onClick={() => void save()} className="rounded-lg bg-[#fdbc24] px-4 py-2 text-sm font-bold text-[#20252b] disabled:opacity-60">{isSaving ? "Đang lưu..." : "Lưu"}</button>
-                </div>
-              </div>
+              <CategoryForm draft={draft} isSaving={isSaving} onChange={setDraft} onCancel={() => { setEditingId(null); setDraft(null); }} onSave={() => void save()} />
             ) : (
-              <div className="flex items-center justify-between gap-4">
-                <div><h3 className="font-bold text-[#2a3035]">{category.translations.vi?.name || category.slug}</h3><p className="mt-1 text-xs text-[#7b838a]">/{category.slug}</p></div>
-                <button type="button" onClick={() => edit(category)} className="flex items-center gap-2 rounded-lg border border-[#cfd4d8] px-3 py-2 text-sm font-semibold"><Pencil className="size-4" /> Sửa</button>
+              <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="font-bold text-[#2a3035]">{category.translations.vi?.name || category.slug}</h2>
+                    <span className={`rounded-md px-2 py-1 text-xs font-bold ${category.active ? "bg-[#ecf8ef] text-[#26733d]" : "bg-[#f0f2f3] text-[#687078]"}`}>{category.active ? "Đang hiển thị" : "Đang ẩn"}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-[#7b838a]">/{category.slug} · Thứ tự {category.sortOrder} · {data.products.filter((product) => product.categoryId === category.id).length} sản phẩm</p>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => edit(category)} disabled={editingId !== null} className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-[#cfd4d8] px-3 py-2 text-sm font-semibold disabled:opacity-45 sm:flex-none"><Pencil className="size-4" /> Sửa</button>
+                  <button type="button" onClick={() => void remove(category)} disabled={editingId !== null} aria-label={`Xoá ${category.translations.vi?.name || category.slug}`} className="grid size-10 place-items-center rounded-lg border border-[#efc6c2] text-[#b42318] hover:bg-[#fff0ef] disabled:opacity-45"><Trash2 className="size-4" /></button>
+                </div>
               </div>
             )}
           </article>
         ))}
       </div>
-      {error ? <p role="alert" className="mt-3 text-sm text-[#b42318]">{error}</p> : null}
+    </section>
+  );
+}
+
+function CategoryForm({
+  draft,
+  isSaving,
+  onChange,
+  onCancel,
+  onSave,
+}: {
+  draft: AdminCategory;
+  isSaving: boolean;
+  onChange: (draft: AdminCategory) => void;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className={labelClass}>Slug
+          <input className={inputClass} value={draft.slug} onChange={(event) => onChange({ ...draft, slug: event.target.value.toLowerCase() })} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="do-uong" required />
+        </label>
+        <label className={labelClass}>Thứ tự
+          <input className={inputClass} type="number" min="0" max="65535" value={draft.sortOrder} onChange={(event) => onChange({ ...draft, sortOrder: Number(event.target.value) })} />
+        </label>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        {languageOptions.map((option) => (
+          <label key={option.code} className={labelClass}>{option.label} {option.code === "vi" ? "*" : ""}
+            <input className={inputClass} value={draft.translations[option.code]?.name ?? ""} required={option.code === "vi"} onChange={(event) => onChange({ ...draft, translations: { ...draft.translations, [option.code]: { ...draft.translations[option.code], name: event.target.value } } })} />
+          </label>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-3 border-t border-[#e5e8ea] pt-4">
+        <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={draft.active} onChange={(event) => onChange({ ...draft, active: event.target.checked })} className="size-4 accent-[#d79a00]" /> Hiển thị trên website</label>
+        <span className="flex-1" />
+        <button type="button" onClick={onCancel} className="rounded-lg border border-[#cfd4d8] px-4 py-2 text-sm font-semibold">Huỷ</button>
+        <button type="button" disabled={isSaving || !draft.slug || !draft.translations.vi?.name} onClick={onSave} className="flex items-center gap-2 rounded-lg bg-[#fdbc24] px-4 py-2 text-sm font-bold text-[#20252b] disabled:opacity-60"><Save className="size-4" /> {isSaving ? "Đang lưu..." : "Lưu danh mục"}</button>
+      </div>
     </div>
   );
 }
@@ -461,7 +745,7 @@ function CategoryEditor({ data, onChange }: { data: AdminData; onChange: (data: 
 export function AdminApp() {
   const [session, setSession] = useState<"checking" | "guest" | "authenticated">("checking");
   const [data, setData] = useState<AdminData | null>(null);
-  const [active, setActive] = useState<"products" | "content">("products");
+  const [active, setActive] = useState<"products" | "categories" | "orders" | "content">("products");
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -505,12 +789,16 @@ export function AdminApp() {
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[220px_1fr]">
         <nav aria-label="Quản trị" className="flex gap-2 overflow-x-auto lg:flex-col">
           <button onClick={() => setActive("products")} className={`flex shrink-0 items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-bold ${active === "products" ? "bg-[#fdbc24] text-[#20252b]" : "bg-white text-[#4c555c] hover:bg-[#f8f9fa]"}`}><Package className="size-4" /> Sản phẩm</button>
+          <button onClick={() => setActive("categories")} className={`flex shrink-0 items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-bold ${active === "categories" ? "bg-[#fdbc24] text-[#20252b]" : "bg-white text-[#4c555c] hover:bg-[#f8f9fa]"}`}><Layers3 className="size-4" /> Danh mục</button>
+          <button onClick={() => setActive("orders")} className={`flex shrink-0 items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-bold ${active === "orders" ? "bg-[#fdbc24] text-[#20252b]" : "bg-white text-[#4c555c] hover:bg-[#f8f9fa]"}`}><ClipboardList className="size-4" /> Đơn hàng</button>
           <button onClick={() => setActive("content")} className={`flex shrink-0 items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-bold ${active === "content" ? "bg-[#fdbc24] text-[#20252b]" : "bg-white text-[#4c555c] hover:bg-[#f8f9fa]"}`}><Store className="size-4" /> Nội dung website</button>
         </nav>
         <div className="min-w-0">
           {error ? <div className="rounded-xl border border-[#efc6c2] bg-[#fff0ef] p-5"><p className="text-sm text-[#b42318]">{error}</p><button onClick={() => void load()} className="mt-3 rounded-lg bg-[#b42318] px-4 py-2 text-sm font-bold text-white">Tải lại</button></div> : null}
           {!error && !data ? <div className="grid gap-3"><div className="h-24 animate-pulse rounded-xl bg-white" /><div className="h-28 animate-pulse rounded-xl bg-white" /><div className="h-28 animate-pulse rounded-xl bg-white" /></div> : null}
           {data && active === "products" ? <ProductsPanel data={data} onChange={setData} /> : null}
+          {data && active === "categories" ? <CategoriesPanel data={data} onChange={setData} /> : null}
+          {data && active === "orders" ? <OrdersPanel /> : null}
           {data && active === "content" ? <ContentPanel data={data} onChange={setData} /> : null}
         </div>
       </div>

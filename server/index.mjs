@@ -22,6 +22,8 @@ import { deleteImage, getImage, mediaUrl, uploadImage } from "./storage.mjs";
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const outDirectory = path.resolve(currentDirectory, "../out");
 const languageCodes = ["vi", "en", "zh-Hans", "zh-Hant"];
+const fulfillmentModes = ["delivery", "pickup"];
+const orderStatuses = ["pending", "confirmed", "preparing", "ready", "completed", "cancelled"];
 const loginAttempts = new Map();
 
 const upload = multer({
@@ -277,6 +279,99 @@ async function fetchAdminData() {
   };
 }
 
+async function fetchAdminOrders(query) {
+  const requestedPage = Number(query.page);
+  const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const pageSize = 20;
+  const fulfillmentMode = fulfillmentModes.includes(query.fulfillmentMode)
+    ? query.fulfillmentMode
+    : null;
+  const status = orderStatuses.includes(query.status) ? query.status : null;
+  const search = cleanText(query.search, 100);
+
+  const [siteRows] = await pool.query("SELECT id FROM sites ORDER BY id LIMIT 1");
+  const siteId = siteRows[0]?.id;
+  if (!siteId) return { orders: [], total: 0, page: 1, pageSize, totalPages: 0 };
+
+  const conditions = ["o.site_id = ?"];
+  const values = [siteId];
+  if (fulfillmentMode) {
+    conditions.push("o.fulfillment_mode = ?");
+    values.push(fulfillmentMode);
+  }
+  if (status) {
+    conditions.push("o.status = ?");
+    values.push(status);
+  }
+  if (search) {
+    conditions.push("(o.order_code LIKE ? OR o.customer_name LIKE ? OR o.customer_phone LIKE ?)");
+    const pattern = `%${search}%`;
+    values.push(pattern, pattern, pattern);
+  }
+  const where = conditions.join(" AND ");
+  const [countRows] = await pool.execute(
+    `SELECT COUNT(*) AS total FROM orders o WHERE ${where}`,
+    values,
+  );
+  const total = Number(countRows[0].total);
+  const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
+  const safePage = totalPages === 0 ? 1 : Math.min(page, totalPages);
+  const offset = (safePage - 1) * pageSize;
+  const [orderRows] = await pool.execute(
+    `SELECT o.* FROM orders o
+      WHERE ${where}
+      ORDER BY o.created_at DESC, o.id DESC
+      LIMIT ${pageSize} OFFSET ${offset}`,
+    values,
+  );
+
+  const itemsByOrder = new Map();
+  if (orderRows.length > 0) {
+    const orderIds = orderRows.map((order) => order.id);
+    const [itemRows] = await pool.query(
+      `SELECT * FROM order_items WHERE order_id IN (?) ORDER BY id`,
+      [orderIds],
+    );
+    for (const item of itemRows) {
+      const orderId = String(item.order_id);
+      if (!itemsByOrder.has(orderId)) itemsByOrder.set(orderId, []);
+      itemsByOrder.get(orderId).push({
+        id: String(item.id),
+        productId: item.product_id == null ? null : String(item.product_id),
+        productName: item.product_name,
+        productImageUrl: item.product_image_url,
+        unitPrice: Number(item.unit_price),
+        quantity: item.quantity,
+        lineTotal: Number(item.line_total),
+      });
+    }
+  }
+
+  return {
+    orders: orderRows.map((order) => ({
+      id: String(order.id),
+      orderCode: order.order_code,
+      languageCode: order.language_code,
+      fulfillmentMode: order.fulfillment_mode,
+      status: order.status,
+      customerName: order.customer_name,
+      customerPhone: order.customer_phone,
+      deliveryAddress: order.delivery_address,
+      customerNote: order.customer_note,
+      currencyCode: order.currency_code,
+      subtotal: Number(order.subtotal),
+      total: Number(order.total),
+      createdAt: order.created_at,
+      updatedAt: order.updated_at,
+      items: itemsByOrder.get(String(order.id)) ?? [],
+    })),
+    total,
+    page: safePage,
+    pageSize,
+    totalPages,
+  };
+}
+
 app.get("/api/health", asyncRoute(async (_request, response) => {
   await pool.query("SELECT 1");
   response.json({ ok: true, service: "minimart-api" });
@@ -430,6 +525,11 @@ app.get("/api/admin/data", requireAdmin, asyncRoute(async (_request, response) =
   response.json(await fetchAdminData());
 }));
 
+app.get("/api/admin/orders", requireAdmin, asyncRoute(async (request, response) => {
+  response.set("Cache-Control", "no-store");
+  response.json(await fetchAdminOrders(request.query));
+}));
+
 app.put(
   "/api/admin/site",
   requireAdmin,
@@ -503,15 +603,38 @@ app.put(
   }),
 );
 
-app.put("/api/admin/categories/:id", requireAdmin, asyncRoute(async (request, response) => {
-  const categoryId = toPositiveId(request.params.id);
+async function saveCategory(request, response, categoryId = null) {
+  const slug = validateSlug(request.body?.slug);
+  const sortOrder = Number(request.body?.sortOrder) || 0;
+  if (!Number.isSafeInteger(sortOrder) || sortOrder < 0 || sortOrder > 65535) {
+    throw new Error("INVALID_SORT_ORDER");
+  }
+  cleanText(request.body?.translations?.vi?.name, 255, true);
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    await connection.execute(
-      "UPDATE categories SET sort_order = ?, is_active = ? WHERE id = ?",
-      [Number(request.body?.sortOrder) || 0, Boolean(request.body?.active), categoryId],
-    );
+    if (categoryId) {
+      const [existingRows] = await connection.execute(
+        "SELECT id FROM categories WHERE id = ? LIMIT 1",
+        [categoryId],
+      );
+      if (existingRows.length === 0) {
+        await connection.rollback();
+        return response.status(404).json({ error: "CATEGORY_NOT_FOUND" });
+      }
+      await connection.execute(
+        "UPDATE categories SET slug = ?, sort_order = ?, is_active = ? WHERE id = ?",
+        [slug, sortOrder, request.body?.active !== false, categoryId],
+      );
+    } else {
+      const [siteRows] = await connection.query("SELECT id FROM sites ORDER BY id LIMIT 1");
+      if (siteRows.length === 0) throw new Error("SITE_NOT_FOUND");
+      const [result] = await connection.execute(
+        "INSERT INTO categories (site_id, slug, sort_order, is_active) VALUES (?, ?, ?, ?)",
+        [siteRows[0].id, slug, sortOrder, request.body?.active !== false],
+      );
+      categoryId = result.insertId;
+    }
     for (const languageCode of languageCodes) {
       const name = cleanText(request.body?.translations?.[languageCode]?.name, 255, languageCode === "vi");
       if (!name) {
@@ -529,13 +652,43 @@ app.put("/api/admin/categories/:id", requireAdmin, asyncRoute(async (request, re
       );
     }
     await connection.commit();
-    response.json(await fetchAdminData());
+    return response.status(request.params.id ? 200 : 201).json(await fetchAdminData());
   } catch (error) {
     await connection.rollback();
     throw error;
   } finally {
     connection.release();
   }
+}
+
+app.post(
+  "/api/admin/categories",
+  requireAdmin,
+  asyncRoute((request, response) => saveCategory(request, response)),
+);
+
+app.put(
+  "/api/admin/categories/:id",
+  requireAdmin,
+  asyncRoute((request, response) => saveCategory(request, response, toPositiveId(request.params.id))),
+);
+
+app.delete("/api/admin/categories/:id", requireAdmin, asyncRoute(async (request, response) => {
+  const categoryId = toPositiveId(request.params.id);
+  const [categoryRows] = await pool.execute(
+    "SELECT id FROM categories WHERE id = ? LIMIT 1",
+    [categoryId],
+  );
+  if (categoryRows.length === 0) return response.status(404).json({ error: "CATEGORY_NOT_FOUND" });
+  const [productRows] = await pool.execute(
+    "SELECT COUNT(*) AS total FROM products WHERE category_id = ?",
+    [categoryId],
+  );
+  if (Number(productRows[0].total) > 0) {
+    return response.status(409).json({ error: "CATEGORY_NOT_EMPTY" });
+  }
+  await pool.execute("DELETE FROM categories WHERE id = ?", [categoryId]);
+  return response.status(204).end();
 }));
 
 async function saveProduct(request, response, productId = null) {
@@ -665,7 +818,7 @@ app.use((error, _request, response, _next) => {
   }
   const clientErrors = new Set([
     "REQUIRED_FIELD", "FIELD_TOO_LONG", "INVALID_FORM_DATA", "INVALID_SLUG",
-    "INVALID_ID", "INVALID_PRICE", "INVALID_IMAGE_TYPE", "INVALID_FULFILLMENT",
+    "INVALID_ID", "INVALID_PRICE", "INVALID_SORT_ORDER", "INVALID_IMAGE_TYPE", "INVALID_FULFILLMENT",
     "INVALID_QUANTITY", "EMPTY_ORDER", "DELIVERY_ADDRESS_REQUIRED", "CATEGORY_NOT_FOUND",
     "PRODUCT_UNAVAILABLE",
   ]);

@@ -43,6 +43,45 @@ export interface AdminProduct {
   translations: AdminTranslations;
 }
 
+export type FulfillmentMode = "delivery" | "pickup";
+export type OrderStatus = "pending" | "confirmed" | "preparing" | "ready" | "completed" | "cancelled";
+
+export interface AdminOrderItem {
+  id: string;
+  productId: string | null;
+  productName: string;
+  productImageUrl: string | null;
+  unitPrice: number;
+  quantity: number;
+  lineTotal: number;
+}
+
+export interface AdminOrder {
+  id: string;
+  orderCode: string;
+  languageCode: LanguageCode;
+  fulfillmentMode: FulfillmentMode;
+  status: OrderStatus;
+  customerName: string;
+  customerPhone: string;
+  deliveryAddress: string | null;
+  customerNote: string | null;
+  currencyCode: string;
+  subtotal: number;
+  total: number;
+  createdAt: string;
+  updatedAt: string;
+  items: AdminOrderItem[];
+}
+
+export interface AdminOrdersResponse {
+  orders: AdminOrder[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 export interface AdminData {
   languages: LanguageCode[];
   site: AdminSite;
