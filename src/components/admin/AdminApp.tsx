@@ -88,9 +88,9 @@ function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
     <main className="grid min-h-dvh place-items-center overflow-y-auto bg-[#eef1f3] px-4 py-10">
       <section className="w-full max-w-md rounded-2xl border border-black/5 bg-white p-6 shadow-[0_18px_50px_rgba(20,29,39,.12)] sm:p-8">
         <div className="flex items-center gap-4">
-          <Image src="/images/logo.jpg" alt="MiniMart" width={64} height={64} className="size-16 rounded-xl object-cover" />
+          <Image src="/images/logo.jpg" alt="Tiệm Tiện Lợi Mỹ Trân" width={64} height={64} className="size-16 rounded-xl object-cover" />
           <div>
-            <h1 className="text-2xl font-bold text-[#20252b]">Quản trị MiniMart</h1>
+            <h1 className="text-2xl font-bold text-[#20252b]">Quản trị Tiệm Tiện Lợi Mỹ Trân</h1>
             <p className="mt-1 text-sm text-[#687078]">Đăng nhập để quản lý cửa hàng</p>
           </div>
         </div>
@@ -781,8 +781,8 @@ export function AdminApp() {
     <main className="h-dvh overflow-y-auto bg-[#eef1f3] text-[#232323]">
       <header className="sticky top-0 z-30 border-b border-black/10 bg-[#141d27] text-white">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6">
-          <Image src="/images/logo.jpg" alt="MiniMart" width={42} height={42} className="size-10 rounded-lg object-cover" />
-          <div className="min-w-0 flex-1"><p className="truncate font-bold">Quản trị MiniMart</p><p className="text-xs text-white/60">Cửa hàng trực tuyến</p></div>
+          <Image src="/images/logo.jpg" alt="Tiệm Tiện Lợi Mỹ Trân" width={42} height={42} className="size-10 rounded-lg object-cover" />
+          <div className="min-w-0 flex-1"><p className="truncate font-bold">Quản trị Tiệm Tiện Lợi Mỹ Trân</p><p className="text-xs text-white/60">Cửa hàng trực tuyến</p></div>
           <button onClick={() => void logout()} className="flex items-center gap-2 rounded-lg border border-white/20 px-3 py-2 text-sm font-semibold hover:bg-white/10"><LogOut className="size-4" /><span className="hidden sm:inline">Đăng xuất</span></button>
         </div>
       </header>

@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "MiniMart 便利店",
-  description: "MiniMart 便利店在线订购",
+  title: "美珍便利店",
+  description: "美珍便利店在线订购",
 };
 
 export default function RootLayout({

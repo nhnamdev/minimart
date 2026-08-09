@@ -1,6 +1,6 @@
-# Minimart
+# Tiệm Tiện Lợi Mỹ Trân
 
-Giao diện đặt hàng trực tuyến đa ngôn ngữ cho Cửa hàng tiện lợi MiniMart. Ứng dụng hỗ trợ chọn giao hàng hoặc tự đến lấy, duyệt danh mục sản phẩm, quản lý giỏ hàng, gửi đơn và quản trị nội dung.
+Giao diện đặt hàng trực tuyến đa ngôn ngữ cho Tiệm Tiện Lợi Mỹ Trân. Ứng dụng hỗ trợ chọn giao hàng hoặc tự đến lấy, duyệt danh mục sản phẩm, quản lý giỏ hàng, gửi đơn và quản trị nội dung.
 
 ## Công nghệ
 
