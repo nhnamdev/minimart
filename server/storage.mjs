@@ -29,7 +29,8 @@ function safeSegment(value) {
 }
 
 export function mediaUrl(key) {
-  return `/api/media/${key.split("/").map(encodeURIComponent).join("/")}`;
+  const encodedKey = key.split("/").map(encodeURIComponent).join("/");
+  return `${config.r2.publicUrl}/${encodedKey}`;
 }
 
 export async function uploadImage(buffer, folder, slug) {

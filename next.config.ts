@@ -6,6 +6,13 @@ const nextConfig: NextConfig = {
   output: "export",
   images: {
     unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "pub-ee0be820c6424699aa4fee1bfa3df623.r2.dev",
+        pathname: "/**",
+      },
+    ],
   },
 };
 

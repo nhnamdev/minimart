@@ -48,3 +48,27 @@ export interface CheckoutDetails {
   deliveryAddress?: string;
   note?: string;
 }
+
+export interface SavedOrderReference {
+  orderCode: string;
+  customerPhone: string;
+}
+
+export interface CustomerOrderItem {
+  id: string;
+  productName: string;
+  unitPrice: number;
+  quantity: number;
+  lineTotal: number;
+}
+
+export interface CustomerOrder {
+  orderCode: string;
+  fulfillmentMode: "delivery" | "pickup";
+  status: "pending" | "confirmed" | "preparing" | "ready" | "completed" | "cancelled";
+  total: number;
+  currencyCode: string;
+  createdAt: string;
+  updatedAt: string;
+  items: CustomerOrderItem[];
+}

@@ -2,12 +2,46 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { CatalogBrowser } from "@/components/CatalogBrowser";
+import { CustomerOrders } from "@/components/CustomerOrders";
 import { FulfillmentChoice } from "@/components/FulfillmentChoice";
 import { OrderTabs } from "@/components/OrderTabs";
 import { ShoppingCart } from "@/components/ShoppingCart";
 import { StoreHeader } from "@/components/StoreHeader";
 import { useLanguage } from "@/context/LanguageContext";
-import type { CartQuantities, StorefrontData } from "@/types/catalog";
+import type { CartQuantities, SavedOrderReference, StorefrontData } from "@/types/catalog";
+
+const cartStorageKey = "minimart-cart";
+const ordersStorageKey = "minimart-orders";
+
+function readStoredCart(): CartQuantities {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(cartStorageKey) ?? "{}") as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return Object.fromEntries(Object.entries(parsed).flatMap(([productId, value]) => {
+      const quantity = Number(value);
+      return Number.isSafeInteger(quantity) && quantity > 0
+        ? [[productId, Math.min(quantity, 99)]]
+        : [];
+    }));
+  } catch {
+    return {};
+  }
+}
+
+function readStoredOrders(): SavedOrderReference[] {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(ordersStorageKey) ?? "[]") as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.flatMap((value) => {
+      if (!value || typeof value !== "object") return [];
+      const orderCode = "orderCode" in value && typeof value.orderCode === "string" ? value.orderCode : "";
+      const customerPhone = "customerPhone" in value && typeof value.customerPhone === "string" ? value.customerPhone : "";
+      return orderCode && customerPhone ? [{ orderCode, customerPhone }] : [];
+    }).slice(0, 20);
+  } catch {
+    return [];
+  }
+}
 
 export function Storefront() {
   const { language, t } = useLanguage();
@@ -15,6 +49,8 @@ export function Storefront() {
   const [activeTab, setActiveTab] = useState<"goods" | "orders">("goods");
   const [searchTerm, setSearchTerm] = useState("");
   const [quantities, setQuantities] = useState<CartQuantities>({});
+  const [savedOrders, setSavedOrders] = useState<SavedOrderReference[]>([]);
+  const [storageReady, setStorageReady] = useState(false);
   const [data, setData] = useState<StorefrontData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -24,7 +60,7 @@ export function Storefront() {
     setError("");
     try {
       const response = await fetch(`/api/storefront?lang=${encodeURIComponent(language)}`, {
-        cache: "no-store",
+        cache: "default",
       });
       if (!response.ok) throw new Error("STORE_LOAD_FAILED");
       setData(await response.json() as StorefrontData);
@@ -38,6 +74,22 @@ export function Storefront() {
   useEffect(() => {
     void loadStorefront();
   }, [loadStorefront]);
+
+  useEffect(() => {
+    setQuantities(readStoredCart());
+    setSavedOrders(readStoredOrders());
+    setStorageReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!storageReady) return;
+    window.localStorage.setItem(cartStorageKey, JSON.stringify(quantities));
+  }, [quantities, storageReady]);
+
+  useEffect(() => {
+    if (!storageReady) return;
+    window.localStorage.setItem(ordersStorageKey, JSON.stringify(savedOrders));
+  }, [savedOrders, storageReady]);
 
   useEffect(() => {
     if (!data) return;
@@ -54,8 +106,15 @@ export function Storefront() {
         return copy;
       }
 
-      return { ...current, [productId]: next };
+      return { ...current, [productId]: Math.min(next, 99) };
     });
+  }
+
+  function rememberOrder(reference: SavedOrderReference) {
+    setSavedOrders((current) => [
+      reference,
+      ...current.filter((item) => item.orderCode !== reference.orderCode),
+    ].slice(0, 20));
   }
 
   if (isLoading && !data) {
@@ -111,16 +170,17 @@ export function Storefront() {
           <ShoppingCart
             fulfillmentMode={fulfillmentMode}
             storeAddress={data.site.address}
+            storePhone={data.site.phone}
             products={products}
             quantities={quantities}
             onQuantityChange={updateQuantity}
             onClear={() => setQuantities({})}
+            onOrderPlaced={rememberOrder}
+            onViewOrders={() => setActiveTab("orders")}
           />
         </>
       ) : (
-        <section className="flex min-h-0 flex-1 flex-col items-center justify-center bg-[#f3f5f7] px-8 text-center text-[#93999f]">
-          <p className="text-[clamp(14px,3.5vw,24px)]">{t("noOrders")}</p>
-        </section>
+        <CustomerOrders references={savedOrders} />
       )}
     </main>
   );

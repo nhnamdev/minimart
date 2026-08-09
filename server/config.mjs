@@ -27,6 +27,7 @@ export const config = {
     accessKeyId: required("R2_ACCESS_KEY_ID"),
     secretAccessKey: required("R2_SECRET_ACCESS_KEY"),
     bucket: required("R2_BUCKET"),
+    publicUrl: required("R2_PUBLIC_URL").replace(/\/$/, ""),
   },
 };
 

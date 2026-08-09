@@ -3,13 +3,14 @@
 import { useMemo, useState } from "react";
 
 import { PhoneIcon } from "@/components/icons";
-import { formatVnd } from "@/data/catalog";
+import { formatVnd } from "@/lib/currency";
 import { useLanguage } from "@/context/LanguageContext";
 import type { CartQuantities, CheckoutDetails, Product } from "@/types/catalog";
 
 interface DeliveryCheckoutDialogProps {
   products: Product[];
   quantities: CartQuantities;
+  storePhone: string;
   onCancel: () => void;
   onConfirm: (details: CheckoutDetails) => Promise<void>;
 }
@@ -17,6 +18,7 @@ interface DeliveryCheckoutDialogProps {
 export function DeliveryCheckoutDialog({
   products,
   quantities,
+  storePhone,
   onCancel,
   onConfirm,
 }: DeliveryCheckoutDialogProps) {
@@ -72,7 +74,7 @@ export function DeliveryCheckoutDialog({
             <div className="mx-[2.5vw] mt-[2.5vw] flex bg-white px-[3vw] pt-[3vw] text-[4.3vw] font-medium text-[#fdbc24] md:mx-4 md:mt-4 md:px-5 md:pt-5 md:text-lg">
               <span className="flex items-center">{t("information")}</span>
               <span className="ml-auto flex items-center">
-                <a href="tel:0865016689" className="flex items-center gap-[1vw] text-[3.8vw] md:gap-2 md:text-sm">
+                <a href={`tel:${storePhone}`} className="flex items-center gap-[1vw] text-[3.8vw] md:gap-2 md:text-sm">
                   <PhoneIcon className="size-[3.4vw] md:size-4" />
                   <span>{t("store")}</span>
                 </a>

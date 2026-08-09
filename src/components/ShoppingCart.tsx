@@ -4,34 +4,40 @@ import { useMemo, useState } from "react";
 import Image from "next/image";
 
 import { DeliveryCheckoutDialog } from "@/components/DeliveryCheckoutDialog";
-import { formatVnd } from "@/data/catalog";
+import { formatVnd } from "@/lib/currency";
 import { CartIcon, CloseIcon, MinusIcon, PlusIcon } from "@/components/icons";
 import { PickupCheckoutDialog } from "@/components/PickupCheckoutDialog";
 import { useLanguage } from "@/context/LanguageContext";
-import type { CartQuantities, CheckoutDetails, Product } from "@/types/catalog";
+import type { CartQuantities, CheckoutDetails, Product, SavedOrderReference } from "@/types/catalog";
 
 interface ShoppingCartProps {
   fulfillmentMode: "delivery" | "pickup";
   storeAddress: string | null;
+  storePhone: string;
   products: Product[];
   quantities: CartQuantities;
   onQuantityChange: (productId: string, next: number) => void;
   onClear: () => void;
+  onOrderPlaced: (reference: SavedOrderReference) => void;
+  onViewOrders: () => void;
 }
 
 export function ShoppingCart({
   fulfillmentMode,
   storeAddress,
+  storePhone,
   products,
   quantities,
   onQuantityChange,
   onClear,
+  onOrderPlaced,
+  onViewOrders,
 }: ShoppingCartProps) {
   const { language, t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [isDeliveryCheckoutOpen, setIsDeliveryCheckoutOpen] = useState(false);
   const [isPickupCheckoutOpen, setIsPickupCheckoutOpen] = useState(false);
-  const [notice, setNotice] = useState("");
+  const [placedOrderCode, setPlacedOrderCode] = useState("");
 
   const selectedProducts = useMemo(
     () => products.filter((product) => (quantities[product.id] ?? 0) > 0),
@@ -50,7 +56,6 @@ export function ShoppingCart({
 
   function handleClear() {
     onClear();
-    setNotice("");
   }
 
   function handleCheckout() {
@@ -85,7 +90,8 @@ export function ShoppingCart({
     setIsDeliveryCheckoutOpen(false);
     setIsPickupCheckoutOpen(false);
     onClear();
-    setNotice(`${t("orderSuccess")}: ${result.orderCode}`);
+    onOrderPlaced({ orderCode: result.orderCode, customerPhone: details.customerPhone });
+    setPlacedOrderCode(result.orderCode);
   }
 
   return (
@@ -94,6 +100,7 @@ export function ShoppingCart({
         <DeliveryCheckoutDialog
           products={products}
           quantities={quantities}
+          storePhone={storePhone}
           onCancel={() => setIsDeliveryCheckoutOpen(false)}
           onConfirm={submitOrder}
         />
@@ -104,10 +111,26 @@ export function ShoppingCart({
           products={products}
           quantities={quantities}
           storeAddress={storeAddress}
+          storePhone={storePhone}
           onCancel={() => setIsPickupCheckoutOpen(false)}
           onConfirm={submitOrder}
         />
       )}
+
+      {placedOrderCode ? (
+        <div className="fixed inset-0 z-[120] grid place-items-center bg-black/60 p-5" role="presentation">
+          <section role="dialog" aria-modal="true" aria-labelledby="order-success-title" className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
+            <div className="mx-auto grid size-14 place-items-center rounded-full bg-[#ecf8ef] text-2xl text-[#26733d]">✓</div>
+            <h2 id="order-success-title" className="mt-4 text-xl font-bold text-[#232323]">{t("orderPlaced")}</h2>
+            <p className="mt-2 text-sm text-[#687078]">{t("orderPlacedDetail")}</p>
+            <p className="mt-2 select-all text-2xl font-black tracking-wide text-[#fb4f45]">#{placedOrderCode}</p>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button type="button" onClick={() => setPlacedOrderCode("")} className="rounded-lg border border-[#cfd4d8] px-4 py-3 font-semibold text-[#4d555d]">{t("close")}</button>
+              <button type="button" onClick={() => { setPlacedOrderCode(""); onViewOrders(); }} className="rounded-lg bg-[#fdbc24] px-4 py-3 font-bold text-[#20252b]">{t("viewOrder")}</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       <section
         aria-hidden={!isOpen}
@@ -193,11 +216,6 @@ export function ShoppingCart({
           </p>
         )}
 
-        {notice && (
-          <p role="status" className="border-t border-[#eceff1] px-4 py-2 text-center text-[12px] text-[#70767b]">
-            {notice}
-          </p>
-        )}
       </section>
 
       <div className="absolute bottom-0 left-0 z-[99] flex h-12 w-full bg-[#141d27]">
@@ -208,7 +226,6 @@ export function ShoppingCart({
           className="flex min-w-0 flex-1 items-start text-left"
           onClick={() => {
             setIsOpen((current) => !current);
-            setNotice("");
           }}
         >
           <span className="relative top-[-10px] mx-3 box-border grid size-14 shrink-0 place-items-center rounded-full bg-[#141d27] p-1.5">

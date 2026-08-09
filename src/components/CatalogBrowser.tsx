@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { formatVnd } from "@/data/catalog";
+import { formatVnd } from "@/lib/currency";
 import { useLanguage } from "@/context/LanguageContext";
 import type { CartQuantities, Category, Product } from "@/types/catalog";
 

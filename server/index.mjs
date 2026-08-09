@@ -25,6 +25,9 @@ const languageCodes = ["vi", "en", "zh-Hans", "zh-Hant"];
 const fulfillmentModes = ["delivery", "pickup"];
 const orderStatuses = ["pending", "confirmed", "preparing", "ready", "completed", "cancelled"];
 const loginAttempts = new Map();
+const storefrontCache = new Map();
+const storefrontCacheTtlMs = 30_000;
+let storefrontCacheVersion = 0;
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -198,6 +201,31 @@ async function fetchStorefront(languageCode) {
       products: productsByCategory.get(String(category.id)) ?? [],
     })),
   };
+}
+
+async function fetchCachedStorefront(languageCode) {
+  const cached = storefrontCache.get(languageCode);
+  if (cached?.data && cached.expiresAt > Date.now()) return cached.data;
+  if (cached?.pending) return cached.pending;
+
+  const version = storefrontCacheVersion;
+  const pending = fetchStorefront(languageCode);
+  storefrontCache.set(languageCode, { pending });
+  try {
+    const data = await pending;
+    if (version === storefrontCacheVersion) {
+      storefrontCache.set(languageCode, { data, expiresAt: Date.now() + storefrontCacheTtlMs });
+    }
+    return data;
+  } catch (error) {
+    storefrontCache.delete(languageCode);
+    throw error;
+  }
+}
+
+function invalidateStorefrontCache() {
+  storefrontCacheVersion += 1;
+  storefrontCache.clear();
 }
 
 async function fetchAdminData() {
@@ -378,9 +406,9 @@ app.get("/api/health", asyncRoute(async (_request, response) => {
 }));
 
 app.get("/api/storefront", asyncRoute(async (request, response) => {
-  const data = await fetchStorefront(validateLanguage(request.query.lang));
+  const data = await fetchCachedStorefront(validateLanguage(request.query.lang));
   if (!data) return response.status(503).json({ error: "STORE_NOT_CONFIGURED" });
-  response.set("Cache-Control", "no-store");
+  response.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
   return response.json(data);
 }));
 
@@ -479,6 +507,47 @@ app.post("/api/orders", asyncRoute(async (request, response) => {
   } finally {
     connection.release();
   }
+}));
+
+app.get("/api/orders/:orderCode", asyncRoute(async (request, response) => {
+  const orderCode = cleanText(request.params.orderCode, 32, true);
+  const customerPhone = cleanText(request.query.phone, 30, true);
+  if (!/^MM[A-Z0-9]+$/.test(orderCode)) throw new Error("INVALID_ORDER_CODE");
+
+  const [orderRows] = await pool.execute(
+    `SELECT id, order_code, fulfillment_mode, status, currency_code, total, created_at, updated_at
+       FROM orders
+      WHERE order_code = ? AND customer_phone = ?
+      LIMIT 1`,
+    [orderCode, customerPhone],
+  );
+  if (orderRows.length === 0) return response.status(404).json({ error: "ORDER_NOT_FOUND" });
+
+  const order = orderRows[0];
+  const [itemRows] = await pool.execute(
+    `SELECT id, product_name, unit_price, quantity, line_total
+       FROM order_items
+      WHERE order_id = ?
+      ORDER BY id`,
+    [order.id],
+  );
+  response.set("Cache-Control", "no-store");
+  return response.json({
+    orderCode: order.order_code,
+    fulfillmentMode: order.fulfillment_mode,
+    status: order.status,
+    currencyCode: order.currency_code,
+    total: Number(order.total),
+    createdAt: order.created_at,
+    updatedAt: order.updated_at,
+    items: itemRows.map((item) => ({
+      id: String(item.id),
+      productName: item.product_name,
+      unitPrice: Number(item.unit_price),
+      quantity: item.quantity,
+      lineTotal: Number(item.line_total),
+    })),
+  });
 }));
 
 app.post("/api/admin/login", asyncRoute(async (request, response) => {
@@ -608,6 +677,7 @@ app.put(
 
       if (logo && site.logo_key) deleteImage(site.logo_key).catch(console.error);
       if (cover && site.cover_image_key) deleteImage(site.cover_image_key).catch(console.error);
+      invalidateStorefrontCache();
       return response.json(await fetchAdminData());
     } catch (error) {
       await Promise.all(uploaded.map((key) => deleteImage(key).catch(() => undefined)));
@@ -665,6 +735,7 @@ async function saveCategory(request, response, categoryId = null) {
       );
     }
     await connection.commit();
+    invalidateStorefrontCache();
     return response.status(request.params.id ? 200 : 201).json(await fetchAdminData());
   } catch (error) {
     await connection.rollback();
@@ -701,6 +772,7 @@ app.delete("/api/admin/categories/:id", requireAdmin, asyncRoute(async (request,
     return response.status(409).json({ error: "CATEGORY_NOT_EMPTY" });
   }
   await pool.execute("DELETE FROM categories WHERE id = ?", [categoryId]);
+  invalidateStorefrontCache();
   return response.status(204).end();
 }));
 
@@ -780,6 +852,7 @@ async function saveProduct(request, response, productId = null) {
     }
 
     if (uploaded && previous?.image_key) deleteImage(previous.image_key).catch(console.error);
+    invalidateStorefrontCache();
     return response.status(previous ? 200 : 201).json(await fetchAdminData());
   } catch (error) {
     if (uploaded) await deleteImage(uploaded.key).catch(() => undefined);
@@ -807,6 +880,7 @@ app.delete("/api/admin/products/:id", requireAdmin, asyncRoute(async (request, r
   if (rows.length === 0) return response.status(404).json({ error: "PRODUCT_NOT_FOUND" });
   await pool.execute("DELETE FROM products WHERE id = ?", [productId]);
   if (rows[0].image_key) await deleteImage(rows[0].image_key).catch(console.error);
+  invalidateStorefrontCache();
   return response.status(204).end();
 }));
 
@@ -832,7 +906,7 @@ app.use((error, _request, response, _next) => {
   const clientErrors = new Set([
     "REQUIRED_FIELD", "FIELD_TOO_LONG", "INVALID_FORM_DATA", "INVALID_SLUG",
     "INVALID_ID", "INVALID_PRICE", "INVALID_SORT_ORDER", "INVALID_IMAGE_TYPE", "INVALID_FULFILLMENT",
-    "INVALID_ORDER_STATUS",
+    "INVALID_ORDER_STATUS", "INVALID_ORDER_CODE",
     "INVALID_QUANTITY", "EMPTY_ORDER", "DELIVERY_ADDRESS_REQUIRED", "CATEGORY_NOT_FOUND",
     "PRODUCT_UNAVAILABLE",
   ]);
