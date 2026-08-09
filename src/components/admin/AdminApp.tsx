@@ -354,9 +354,43 @@ function formatOrderTime(value: string) {
   }).format(new Date(value));
 }
 
-function OrderCard({ order }: { order: AdminOrder }) {
+function OrderCard({
+  order,
+  onStatusUpdated,
+}: {
+  order: AdminOrder;
+  onStatusUpdated: (orderId: string, status: OrderStatus) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
+  const [nextStatus, setNextStatus] = useState<OrderStatus>(order.status);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
   const isDelivery = order.fulfillmentMode === "delivery";
+
+  useEffect(() => {
+    setNextStatus(order.status);
+  }, [order.status]);
+
+  async function updateStatus() {
+    setIsUpdatingStatus(true);
+    setStatusMessage("");
+    try {
+      const result = await jsonRequest<{ id: string; status: OrderStatus }>(
+        `/api/admin/orders/${order.id}/status`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: nextStatus }),
+        },
+      );
+      onStatusUpdated(result.id, result.status);
+      setStatusMessage("Đã cập nhật trạng thái đơn hàng.");
+    } catch {
+      setStatusMessage("Không thể cập nhật trạng thái đơn hàng.");
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  }
 
   return (
     <article className="overflow-hidden rounded-xl border border-[#dfe3e6] bg-white">
@@ -421,6 +455,17 @@ function OrderCard({ order }: { order: AdminOrder }) {
               </div>
             </section>
           </div>
+          <div className="mt-4 grid gap-3 rounded-lg border border-[#dfe3e6] bg-white p-4 sm:grid-cols-[1fr_auto] sm:items-end">
+            <label className={labelClass}>Trạng thái đơn hàng
+              <select className={inputClass} value={nextStatus} onChange={(event) => { setNextStatus(event.target.value as OrderStatus); setStatusMessage(""); }}>
+                {(Object.entries(orderStatusLabels) as [OrderStatus, string][]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+            <button type="button" disabled={isUpdatingStatus || nextStatus === order.status} onClick={() => void updateStatus()} className="flex items-center justify-center gap-2 rounded-lg bg-[#fdbc24] px-5 py-2.5 text-sm font-bold text-[#20252b] hover:bg-[#efae14] disabled:cursor-not-allowed disabled:opacity-50">
+              <Save className="size-4" /> {isUpdatingStatus ? "Đang cập nhật..." : "Cập nhật trạng thái"}
+            </button>
+            {statusMessage ? <p role="status" className={`text-sm sm:col-span-2 ${statusMessage.startsWith("Đã") ? "text-[#26733d]" : "text-[#b42318]"}`}>{statusMessage}</p> : null}
+          </div>
         </div>
       ) : null}
     </article>
@@ -465,6 +510,13 @@ function OrdersPanel() {
     setPage(1);
   }
 
+  function updateOrderStatus(orderId: string, status: OrderStatus) {
+    setOrdersData((current) => current ? {
+      ...current,
+      orders: current.orders.map((order) => order.id === orderId ? { ...order, status } : order),
+    } : current);
+  }
+
   return (
     <section>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -497,7 +549,7 @@ function OrdersPanel() {
           <p className="mt-3 font-semibold text-[#596168]">Chưa có đơn hàng phù hợp.</p>
         </div>
       ) : null}
-      {ordersData?.orders.length ? <div className={`mt-4 grid gap-3 ${isLoading ? "opacity-60" : ""}`}>{ordersData.orders.map((order) => <OrderCard key={order.id} order={order} />)}</div> : null}
+      {ordersData?.orders.length ? <div className={`mt-4 grid gap-3 ${isLoading ? "opacity-60" : ""}`}>{ordersData.orders.map((order) => <OrderCard key={order.id} order={order} onStatusUpdated={updateOrderStatus} />)}</div> : null}
 
       {ordersData && ordersData.totalPages > 1 ? (
         <div className="mt-6 flex items-center justify-center gap-3">

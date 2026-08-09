@@ -530,6 +530,19 @@ app.get("/api/admin/orders", requireAdmin, asyncRoute(async (request, response) 
   response.json(await fetchAdminOrders(request.query));
 }));
 
+app.patch("/api/admin/orders/:id/status", requireAdmin, asyncRoute(async (request, response) => {
+  const orderId = toPositiveId(request.params.id);
+  const status = request.body?.status;
+  if (!orderStatuses.includes(status)) throw new Error("INVALID_ORDER_STATUS");
+  const [orderRows] = await pool.execute(
+    "SELECT id FROM orders WHERE id = ? LIMIT 1",
+    [orderId],
+  );
+  if (orderRows.length === 0) return response.status(404).json({ error: "ORDER_NOT_FOUND" });
+  await pool.execute("UPDATE orders SET status = ? WHERE id = ?", [status, orderId]);
+  return response.json({ id: String(orderId), status });
+}));
+
 app.put(
   "/api/admin/site",
   requireAdmin,
@@ -819,6 +832,7 @@ app.use((error, _request, response, _next) => {
   const clientErrors = new Set([
     "REQUIRED_FIELD", "FIELD_TOO_LONG", "INVALID_FORM_DATA", "INVALID_SLUG",
     "INVALID_ID", "INVALID_PRICE", "INVALID_SORT_ORDER", "INVALID_IMAGE_TYPE", "INVALID_FULFILLMENT",
+    "INVALID_ORDER_STATUS",
     "INVALID_QUANTITY", "EMPTY_ORDER", "DELIVERY_ADDRESS_REQUIRED", "CATEGORY_NOT_FOUND",
     "PRODUCT_UNAVAILABLE",
   ]);
