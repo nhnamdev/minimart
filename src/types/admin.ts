@@ -59,6 +59,31 @@ export interface AdminOrderItem {
   lineTotal: number;
 }
 
+export interface AdminOrderEmailLog {
+  id: string;
+  recipient: string;
+  sender: string;
+  subject: string;
+  textBody: string;
+  htmlBody: string;
+  status: "pending" | "sent" | "failed";
+  providerMessageId: string | null;
+  providerResponse: string | null;
+  errorMessage: string | null;
+  attemptedAt: string | null;
+  sentAt: string | null;
+  createdAt: string;
+  events: AdminOrderEmailEvent[];
+}
+
+export interface AdminOrderEmailEvent {
+  id: string;
+  eventType: string;
+  payload: string;
+  occurredAt: string | null;
+  createdAt: string;
+}
+
 export interface AdminOrder {
   id: string;
   orderCode: string;
@@ -75,6 +100,7 @@ export interface AdminOrder {
   createdAt: string;
   updatedAt: string;
   items: AdminOrderItem[];
+  emailLogs: AdminOrderEmailLog[];
 }
 
 export interface AdminOrdersResponse {

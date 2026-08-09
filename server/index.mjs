@@ -17,6 +17,7 @@ import {
 } from "./auth.mjs";
 import { config } from "./config.mjs";
 import { initializeDatabase, pool } from "./db.mjs";
+import { buildOrderEmail, createOrderEmailLog, deliverOrderEmail, handleResendWebhook } from "./email.mjs";
 import { deleteImage, getImage, mediaUrl, uploadImage } from "./storage.mjs";
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -47,6 +48,22 @@ app.disable("x-powered-by");
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "same-origin" },
   contentSecurityPolicy: false,
+}));
+app.post("/api/webhooks/resend", express.raw({ type: "application/json", limit: "256kb" }), asyncRoute(async (request, response) => {
+  const rawBody = request.body.toString("utf8");
+  try {
+    await handleResendWebhook(rawBody, {
+      id: request.get("svix-id"),
+      timestamp: request.get("svix-timestamp"),
+      signature: request.get("svix-signature"),
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "WebhookVerificationError") {
+      return response.status(400).json({ error: "INVALID_WEBHOOK_SIGNATURE" });
+    }
+    throw error;
+  }
+  response.json({ received: true });
 }));
 app.use(compression());
 app.use(express.json({ limit: "1mb" }));
@@ -388,6 +405,7 @@ async function fetchAdminOrders(query) {
   );
 
   const itemsByOrder = new Map();
+  const emailLogsByOrder = new Map();
   if (orderRows.length > 0) {
     const orderIds = orderRows.map((order) => order.id);
     const [itemRows] = await pool.query(
@@ -405,6 +423,49 @@ async function fetchAdminOrders(query) {
         unitPrice: Number(item.unit_price),
         quantity: item.quantity,
         lineTotal: Number(item.line_total),
+      });
+    }
+    const [emailLogRows] = await pool.query(
+      `SELECT * FROM order_email_logs WHERE order_id IN (?) ORDER BY created_at DESC, id DESC`,
+      [orderIds],
+    );
+    const eventsByEmailLog = new Map();
+    if (emailLogRows.length > 0) {
+      const emailLogIds = emailLogRows.map((emailLog) => emailLog.id);
+      const [eventRows] = await pool.query(
+        `SELECT * FROM order_email_events WHERE email_log_id IN (?) ORDER BY occurred_at DESC, id DESC`,
+        [emailLogIds],
+      );
+      for (const event of eventRows) {
+        const emailLogId = String(event.email_log_id);
+        if (!eventsByEmailLog.has(emailLogId)) eventsByEmailLog.set(emailLogId, []);
+        eventsByEmailLog.get(emailLogId).push({
+          id: String(event.id),
+          eventType: event.event_type,
+          payload: event.payload,
+          occurredAt: event.occurred_at,
+          createdAt: event.created_at,
+        });
+      }
+    }
+    for (const emailLog of emailLogRows) {
+      const orderId = String(emailLog.order_id);
+      if (!emailLogsByOrder.has(orderId)) emailLogsByOrder.set(orderId, []);
+      emailLogsByOrder.get(orderId).push({
+        id: String(emailLog.id),
+        recipient: emailLog.recipient,
+        sender: emailLog.sender,
+        subject: emailLog.subject,
+        textBody: emailLog.text_body,
+        htmlBody: emailLog.html_body,
+        status: emailLog.status,
+        providerMessageId: emailLog.provider_message_id,
+        providerResponse: emailLog.provider_response,
+        errorMessage: emailLog.error_message,
+        attemptedAt: emailLog.attempted_at,
+        sentAt: emailLog.sent_at,
+        createdAt: emailLog.created_at,
+        events: eventsByEmailLog.get(String(emailLog.id)) ?? [],
       });
     }
   }
@@ -426,6 +487,7 @@ async function fetchAdminOrders(query) {
       createdAt: order.created_at,
       updatedAt: order.updated_at,
       items: itemsByOrder.get(String(order.id)) ?? [],
+      emailLogs: emailLogsByOrder.get(String(order.id)) ?? [],
     })),
     total,
     page: safePage,
@@ -489,6 +551,7 @@ app.post("/api/orders", asyncRoute(async (request, response) => {
   if (requestedItems.size === 0) throw new Error("EMPTY_ORDER");
 
   const connection = await pool.getConnection();
+  let committed = false;
   try {
     await connection.beginTransaction();
     const productIds = [...requestedItems.keys()];
@@ -534,10 +597,35 @@ app.post("/api/orders", asyncRoute(async (request, response) => {
       );
     }
 
+    const email = buildOrderEmail({
+      orderCode,
+      fulfillmentMode,
+      customerName,
+      customerPhone,
+      deliveryAddress,
+      customerNote,
+      currencyCode: rows[0].currency_code,
+      total: subtotal,
+      items: rows.map((product) => {
+        const quantity = requestedItems.get(Number(product.id));
+        return {
+          name: product.name,
+          quantity,
+          lineTotal: Number(product.price) * quantity,
+        };
+      }),
+    });
+    const emailLogId = await createOrderEmailLog(connection, orderResult.insertId, email);
+
     await connection.commit();
-    return response.status(201).json({ orderCode, total: subtotal });
+    committed = true;
+    const notification = await deliverOrderEmail(emailLogId).catch((error) => {
+      console.error(JSON.stringify({ event: "order_email", logId: emailLogId, status: "failed", error: error instanceof Error ? error.message : "EMAIL_SEND_FAILED" }));
+      return { status: "failed" };
+    });
+    return response.status(201).json({ orderCode, total: subtotal, notificationStatus: notification.status });
   } catch (error) {
-    await connection.rollback();
+    if (!committed) await connection.rollback();
     throw error;
   } finally {
     connection.release();

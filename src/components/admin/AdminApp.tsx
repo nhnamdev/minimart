@@ -26,6 +26,7 @@ import type {
   AdminCategory,
   AdminData,
   AdminOrder,
+  AdminOrderEmailLog,
   AdminOrdersResponse,
   AdminProduct,
   AdminTranslations,
@@ -361,6 +362,66 @@ function formatOrderTime(value: string, timezone: string) {
   }).format(new Date(value));
 }
 
+const emailStatusLabels: Record<AdminOrderEmailLog["status"], string> = {
+  pending: "等待发送",
+  sent: "Resend 已接受",
+  failed: "发送失败",
+};
+
+const emailStatusClasses: Record<AdminOrderEmailLog["status"], string> = {
+  pending: "bg-[#fff5d6] text-[#8a5b00]",
+  sent: "bg-[#e7f6ea] text-[#26733d]",
+  failed: "bg-[#fff0ef] text-[#b42318]",
+};
+
+function EmailLogCard({ log, timezone }: { log: AdminOrderEmailLog; timezone: string }) {
+  const latestEvent = log.events[0];
+  return (
+    <article className="rounded-lg border border-[#dfe3e6] bg-white p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-bold text-[#30363b]">{log.subject}</p>
+        <span className={`rounded-md px-2 py-1 text-xs font-bold ${emailStatusClasses[log.status]}`}>{emailStatusLabels[log.status]}</span>
+      </div>
+      <dl className="mt-3 grid gap-1 text-sm text-[#596168]">
+        <div><dt className="inline font-semibold text-[#30363b]">收件人：</dt><dd className="inline">{log.recipient}</dd></div>
+        <div><dt className="inline font-semibold text-[#30363b]">发件人：</dt><dd className="inline">{log.sender}</dd></div>
+        <div><dt className="inline font-semibold text-[#30363b]">创建时间：</dt><dd className="inline">{formatOrderTime(log.createdAt, timezone)}</dd></div>
+        {log.sentAt ? <div><dt className="inline font-semibold text-[#30363b]">发送时间：</dt><dd className="inline">{formatOrderTime(log.sentAt, timezone)}</dd></div> : null}
+        {log.providerMessageId ? <div><dt className="inline font-semibold text-[#30363b]">Resend 邮件 ID：</dt><dd className="inline break-all">{log.providerMessageId}</dd></div> : null}
+        {latestEvent ? <div><dt className="inline font-semibold text-[#30363b]">最新投递事件：</dt><dd className="inline">{latestEvent.eventType}</dd></div> : null}
+        {log.errorMessage ? <div className="mt-2 rounded-md bg-[#fff0ef] px-3 py-2 text-[#b42318]"><dt className="inline font-semibold">错误：</dt><dd className="inline">{log.errorMessage}</dd></div> : null}
+      </dl>
+      <details className="mt-3 rounded-md border border-[#e2e5e8] bg-[#f8f9fa] p-3">
+        <summary className="cursor-pointer text-sm font-semibold">查看完整邮件内容</summary>
+        <pre className="mt-3 whitespace-pre-wrap break-words text-xs leading-5 text-[#434b52]">{log.textBody}</pre>
+      </details>
+      <details className="mt-2 rounded-md border border-[#e2e5e8] bg-[#f8f9fa] p-3">
+        <summary className="cursor-pointer text-sm font-semibold">查看 HTML 源码</summary>
+        <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-[#434b52]">{log.htmlBody}</pre>
+      </details>
+      {log.providerResponse ? (
+        <details className="mt-2 rounded-md border border-[#e2e5e8] bg-[#f8f9fa] p-3">
+          <summary className="cursor-pointer text-sm font-semibold">查看 Resend 完整响应</summary>
+          <pre className="mt-3 whitespace-pre-wrap break-words text-xs leading-5 text-[#434b52]">{log.providerResponse}</pre>
+        </details>
+      ) : null}
+      {log.events.length > 0 ? (
+        <details className="mt-2 rounded-md border border-[#e2e5e8] bg-[#f8f9fa] p-3">
+          <summary className="cursor-pointer text-sm font-semibold">查看全部投递事件（{log.events.length}）</summary>
+          <div className="mt-3 grid gap-3">
+            {log.events.map((event) => (
+              <div key={event.id} className="rounded border border-[#dfe3e6] bg-white p-3">
+                <p className="text-xs font-bold text-[#30363b]">{event.eventType} · {formatOrderTime(event.occurredAt || event.createdAt, timezone)}</p>
+                <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-[#596168]">{event.payload}</pre>
+              </div>
+            ))}
+          </div>
+        </details>
+      ) : null}
+    </article>
+  );
+}
+
 function OrderCard({
   order,
   timezone,
@@ -475,6 +536,14 @@ function OrderCard({
             </button>
             {statusMessage ? <p role="status" className={`text-sm sm:col-span-2 ${statusMessage.startsWith("订单") ? "text-[#26733d]" : "text-[#b42318]"}`}>{statusMessage}</p> : null}
           </div>
+          <section className="mt-4">
+            <h3 className="text-sm font-bold text-[#2a3035]">邮件通知记录</h3>
+            {order.emailLogs.length > 0 ? (
+              <div className="mt-3 grid gap-3">{order.emailLogs.map((log) => <EmailLogCard key={log.id} log={log} timezone={timezone} />)}</div>
+            ) : (
+              <p className="mt-2 text-sm text-[#7a8289]">此订单没有邮件发送记录。</p>
+            )}
+          </section>
         </div>
       ) : null}
     </article>

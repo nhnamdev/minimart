@@ -22,6 +22,12 @@ export const config = {
     password: required("ADMIN_PASSWORD"),
   },
   jwtSecret: required("JWT_SECRET"),
+  email: {
+    apiKey: required("RESEND_API_KEY"),
+    webhookSecret: required("RESEND_WEBHOOK_SECRET"),
+    orderRecipient: required("ORDER_NOTIFICATION_EMAIL"),
+    from: required("RESEND_FROM_EMAIL"),
+  },
   r2: {
     accountId: required("R2_ACCOUNT_ID"),
     accessKeyId: required("R2_ACCESS_KEY_ID"),

@@ -213,3 +213,43 @@ CREATE TABLE IF NOT EXISTS `order_items` (
   CONSTRAINT `chk_order_items_quantity` CHECK (`quantity` > 0),
   CONSTRAINT `chk_order_items_line_total` CHECK (`line_total` = `unit_price` * `quantity`)
 ) ENGINE = InnoDB;
+
+CREATE TABLE IF NOT EXISTS `order_email_logs` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `order_id` BIGINT UNSIGNED NOT NULL,
+  `recipient` VARCHAR(320) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `sender` VARCHAR(500) NOT NULL,
+  `subject` VARCHAR(500) NOT NULL,
+  `text_body` MEDIUMTEXT NOT NULL,
+  `html_body` MEDIUMTEXT NOT NULL,
+  `status` ENUM('pending', 'sent', 'failed') NOT NULL DEFAULT 'pending',
+  `provider_message_id` VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin NULL,
+  `provider_response` TEXT NULL,
+  `error_message` TEXT NULL,
+  `attempted_at` TIMESTAMP NULL,
+  `sent_at` TIMESTAMP NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_order_email_logs_order` (`order_id`, `created_at`),
+  KEY `idx_order_email_logs_status` (`status`, `created_at`),
+  CONSTRAINT `fk_order_email_logs_order`
+    FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`)
+    ON UPDATE CASCADE ON DELETE CASCADE
+) ENGINE = InnoDB;
+
+CREATE TABLE IF NOT EXISTS `order_email_events` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `email_log_id` BIGINT UNSIGNED NOT NULL,
+  `provider_event_id` VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `event_type` VARCHAR(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `payload` MEDIUMTEXT NOT NULL,
+  `occurred_at` DATETIME(3) NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_order_email_events_provider_event` (`provider_event_id`),
+  KEY `idx_order_email_events_log` (`email_log_id`, `created_at`),
+  CONSTRAINT `fk_order_email_events_log`
+    FOREIGN KEY (`email_log_id`) REFERENCES `order_email_logs` (`id`)
+    ON UPDATE CASCADE ON DELETE CASCADE
+) ENGINE = InnoDB;
