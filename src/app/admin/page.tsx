@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { AdminApp } from "@/components/admin/AdminApp";
 
 export const metadata: Metadata = {
-  title: "Quản trị cửa hàng",
+  title: "商店管理后台",
   robots: { index: false, follow: false },
 };
 
