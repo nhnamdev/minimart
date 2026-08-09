@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import mysql from "mysql2/promise";
 
 import { config } from "./config.mjs";
-import { initialCategories, initialSite } from "./seed-data.mjs";
+import { catalogTranslations, initialCategories, initialSite } from "./seed-data.mjs";
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 
@@ -103,6 +103,12 @@ async function seedCatalog() {
         "INSERT INTO category_translations (category_id, language_code, name) VALUES (?, 'vi', ?)",
         [categoryId, category.name],
       );
+      for (const [languageCode, name] of Object.entries(catalogTranslations.categories[category.slug])) {
+        await connection.execute(
+          "INSERT INTO category_translations (category_id, language_code, name) VALUES (?, ?, ?)",
+          [categoryId, languageCode, name],
+        );
+      }
 
       for (const [productIndex, product] of category.products.entries()) {
         const [slug, name, description, price, imageUrl] = product;
@@ -118,6 +124,14 @@ async function seedCatalog() {
            VALUES (?, 'vi', ?, ?)`,
           [productResult.insertId, name, description],
         );
+        for (const [languageCode, translation] of Object.entries(catalogTranslations.products[slug])) {
+          await connection.execute(
+            `INSERT INTO product_translations
+              (product_id, language_code, name, description)
+             VALUES (?, ?, ?, ?)`,
+            [productResult.insertId, languageCode, translation.name, translation.description],
+          );
+        }
       }
     }
 

@@ -18,6 +18,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "node server/index.mjs",
+    "db:seed-translations": "node database/seed-all-translations.mjs",
     "server:check": "node --check server/config.mjs && node --check server/db.mjs && node --check server/storage.mjs && node --check server/auth.mjs && node --check server/index.mjs",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
