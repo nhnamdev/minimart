@@ -46,7 +46,7 @@ export function buildOrderEmail(order) {
   const html = `<!doctype html>
 <html lang="vi"><body style="margin:0;background:#f3f4f6;font-family:Arial,sans-serif;color:#20252b">
   <div style="max-width:640px;margin:24px auto;background:#fff;border-radius:12px;overflow:hidden">
-    <div style="background:#141d27;color:#fff;padding:20px 24px"><h1 style="margin:0;font-size:22px">美珍便利店 — Đơn hàng mới</h1></div>
+    <div style="background:#141d27;color:#fff;padding:20px 24px"><h1 style="margin:0;font-size:22px">Tiệm Tiện Lợi Mỹ Trân — Đơn hàng mới</h1></div>
     <div style="padding:24px;line-height:1.6">
       <p><strong>Mã đơn:</strong> ${escapeHtml(order.orderCode)}</p>
       <p><strong>Hình thức:</strong> ${escapeHtml(fulfillmentLabel)}</p>
@@ -63,7 +63,7 @@ export function buildOrderEmail(order) {
   return {
     recipient: config.email.orderRecipient,
     sender: config.email.from,
-    subject: `[美珍便利店] Đơn hàng mới #${order.orderCode}`,
+    subject: `[Tiệm Tiện Lợi Mỹ Trân] Đơn hàng mới #${order.orderCode}`,
     text,
     html,
   };
