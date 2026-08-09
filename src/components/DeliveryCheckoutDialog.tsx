@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { PhoneIcon } from "@/components/icons";
-import { formatVnd } from "@/lib/currency";
+import { formatCurrency } from "@/lib/currency";
 import { useLanguage } from "@/context/LanguageContext";
 import type { CartQuantities, CheckoutDetails, Product } from "@/types/catalog";
 
@@ -11,6 +11,7 @@ interface DeliveryCheckoutDialogProps {
   products: Product[];
   quantities: CartQuantities;
   storePhone: string;
+  currencyCode: string;
   onCancel: () => void;
   onConfirm: (details: CheckoutDetails) => Promise<void>;
 }
@@ -19,10 +20,11 @@ export function DeliveryCheckoutDialog({
   products,
   quantities,
   storePhone,
+  currencyCode,
   onCancel,
   onConfirm,
 }: DeliveryCheckoutDialogProps) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
@@ -136,7 +138,7 @@ export function DeliveryCheckoutDialog({
                       </span>
                     </div>
                     <span className="flex-1 text-right font-medium text-[#383838]">
-                      {formatVnd(product.price * quantity)}
+                      {formatCurrency(product.price * quantity, currencyCode, language)}
                     </span>
                   </div>
                 );
@@ -145,7 +147,7 @@ export function DeliveryCheckoutDialog({
               <div className="pt-[3vw] text-right text-[4vw] font-medium text-[#383838] md:pt-4 md:text-base">
                 <span className="mr-[2%]">{t("quantity")} {itemCount}</span>
                 <span>
-                  {t("subtotal")} <strong>{formatVnd(subtotal)}</strong>
+                  {t("subtotal")} <strong>{formatCurrency(subtotal, currencyCode, language)}</strong>
                 </span>
               </div>
             </div>

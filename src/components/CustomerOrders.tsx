@@ -4,7 +4,7 @@ import { RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { useLanguage } from "@/context/LanguageContext";
-import { formatVnd } from "@/lib/currency";
+import { formatCurrency } from "@/lib/currency";
 import type { MessageKey } from "@/lib/i18n";
 import type { CustomerOrder, SavedOrderReference } from "@/types/catalog";
 
@@ -119,11 +119,11 @@ export function CustomerOrders({ references }: { references: SavedOrderReference
                 {order.items.map((item) => (
                   <div key={item.id} className="flex justify-between gap-4 py-2.5 text-sm">
                     <p className="min-w-0 text-[#343a40]">{item.productName} <span className="text-[#7b8389]">× {item.quantity}</span></p>
-                    <p className="shrink-0 font-semibold text-[#343a40]">{formatVnd(item.lineTotal)}</p>
+                    <p className="shrink-0 font-semibold text-[#343a40]">{formatCurrency(item.lineTotal, order.currencyCode, language)}</p>
                   </div>
                 ))}
               </div>
-              <div className="flex justify-end border-t border-[#dfe3e6] pt-3 font-bold text-[#fb4f45]">{formatVnd(order.total)}</div>
+              <div className="flex justify-end border-t border-[#dfe3e6] pt-3 font-bold text-[#fb4f45]">{formatCurrency(order.total, order.currencyCode, language)}</div>
             </article>
           ))}
         </div>

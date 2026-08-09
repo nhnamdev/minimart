@@ -47,33 +47,33 @@ export function StoreHeader({
 
   return (
     <header className="relative isolate overflow-hidden text-white">
-      <div
+      {site.coverImageUrl ? <div
         aria-hidden="true"
         className="absolute -inset-[2vw] -z-20 blur-[3vw] md:-inset-6 md:blur-3xl"
       >
         <Image
-          src={site.coverImageUrl || "/images/order-multi/store-avatar.jpg"}
+          src={site.coverImageUrl}
           alt=""
           fill
           sizes="100vw"
           className="object-cover"
         />
-      </div>
+      </div> : null}
       <div
         aria-hidden="true"
         className="absolute inset-0 -z-10 bg-[rgba(7,17,27,.5)]"
       />
 
       <div className="flex px-[4vw] pt-[4vw] md:px-8 md:pt-6">
-        <div className="relative size-[18vw] shrink-0 overflow-hidden rounded-[1vw] md:size-24 md:rounded-lg">
+        {site.logoUrl ? <div className="relative size-[18vw] shrink-0 overflow-hidden rounded-[1vw] md:size-24 md:rounded-lg">
           <Image
-            src={site.logoUrl || "/images/logo.jpg"}
+            src={site.logoUrl}
             alt={site.name}
             fill
             sizes="18vw"
             className="object-cover"
           />
-        </div>
+        </div> : null}
 
         <div className="ml-[1.5vw] mr-[1vw] min-w-0 flex-1 md:ml-4 md:mr-4">
           <h1 className="text-[4.3vw] leading-[5vw] font-bold md:text-2xl md:leading-7">{site.name}</h1>

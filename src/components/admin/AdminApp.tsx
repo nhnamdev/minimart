@@ -21,6 +21,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { languageOptions } from "@/lib/i18n";
+import { formatCurrency } from "@/lib/currency";
 import type {
   AdminCategory,
   AdminData,
@@ -31,7 +32,7 @@ import type {
   FulfillmentMode,
   OrderStatus,
 } from "@/types/admin";
-import type { LanguageCode } from "@/types/catalog";
+import type { LanguageCode, SiteContent, StorefrontData } from "@/types/catalog";
 
 const inputClass = "w-full rounded-lg border border-[#ccd1d5] bg-white px-3 py-2.5 text-sm text-[#232323] outline-none transition focus:border-[#d79a00] focus:ring-2 focus:ring-[#fdbc24]/25 placeholder:text-[#777f86]";
 const labelClass = "grid gap-2 text-sm font-semibold text-[#343a40]";
@@ -58,7 +59,7 @@ async function jsonRequest<T>(url: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
+function LoginScreen({ onSuccess, site }: { onSuccess: () => void; site: SiteContent | null }) {
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -88,9 +89,9 @@ function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
     <main className="grid min-h-dvh place-items-center overflow-y-auto bg-[#eef1f3] px-4 py-10">
       <section className="w-full max-w-md rounded-2xl border border-black/5 bg-white p-6 shadow-[0_18px_50px_rgba(20,29,39,.12)] sm:p-8">
         <div className="flex items-center gap-4">
-          <Image src="/images/logo.jpg" alt="Tiệm Tiện Lợi Mỹ Trân" width={64} height={64} className="size-16 rounded-xl object-cover" />
+          {site?.logoUrl ? <Image src={site.logoUrl} alt={site.name} width={64} height={64} className="size-16 rounded-xl object-cover" /> : <div className="grid size-16 place-items-center rounded-xl bg-[#fdbc24]/20"><Store className="size-7 text-[#9b6a00]" /></div>}
           <div>
-            <h1 className="text-2xl font-bold text-[#20252b]">Quản trị Tiệm Tiện Lợi Mỹ Trân</h1>
+            <h1 className="text-2xl font-bold text-[#20252b]">Quản trị {site?.name ?? "cửa hàng"}</h1>
             <p className="mt-1 text-sm text-[#687078]">Đăng nhập để quản lý cửa hàng</p>
           </div>
         </div>
@@ -127,11 +128,13 @@ interface ProductDraft {
 function ProductEditor({
   product,
   categories,
+  currencyCode,
   onClose,
   onSaved,
 }: {
   product: AdminProduct | null;
   categories: AdminCategory[];
+  currencyCode: string;
   onClose: () => void;
   onSaved: (data: AdminData) => void;
 }) {
@@ -222,7 +225,7 @@ function ProductEditor({
               <input className={inputClass} value={draft.slug} onChange={(event) => setDraft({ ...draft, slug: event.target.value.toLowerCase() })} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required />
             </label>
             <div className="grid grid-cols-2 gap-3">
-              <label className={labelClass}>Giá (VND)
+              <label className={labelClass}>Giá ({currencyCode})
                 <input className={inputClass} type="number" min="0" step="1" value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} required />
               </label>
               <label className={labelClass}>Thứ tự
@@ -304,7 +307,7 @@ function ProductsPanel({ data, onChange }: { data: AdminData; onChange: (data: A
               {product.imageUrl ? <Image src={product.imageUrl} alt="" width={72} height={72} className="size-[72px] rounded-lg object-cover" /> : <div className="grid size-[72px] place-items-center rounded-lg bg-[#f0f2f3]"><Package className="text-[#8a9299]" /></div>}
               <div className="min-w-0">
                 <h2 className="truncate font-bold text-[#252b30]">{product.translations.vi?.name || product.slug}</h2>
-                <p className="mt-1 text-sm text-[#687078]">{categoryNames.get(product.categoryId)} · {new Intl.NumberFormat("vi-VN").format(product.price)}₫</p>
+                <p className="mt-1 text-sm text-[#687078]">{categoryNames.get(product.categoryId)} · {formatCurrency(product.price, data.site.currencyCode, "vi")}</p>
                 <p className="mt-1 text-xs text-[#8a9299]">/{product.slug}{product.sku ? ` · SKU ${product.sku}` : ""}</p>
                 <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold">
                   <span className={`rounded-md px-2 py-1 ${product.active ? "bg-[#ecf8ef] text-[#26733d]" : "bg-[#f0f2f3] text-[#687078]"}`}>{product.active ? "Đang hiển thị" : "Đang ẩn"}</span>
@@ -319,7 +322,7 @@ function ProductsPanel({ data, onChange }: { data: AdminData; onChange: (data: A
           ))}
         </div>
       )}
-      {editing !== undefined ? <ProductEditor product={editing} categories={data.categories} onClose={() => setEditing(undefined)} onSaved={(next) => { onChange(next); setEditing(undefined); }} /> : null}
+      {editing !== undefined ? <ProductEditor product={editing} categories={data.categories} currencyCode={data.site.currencyCode} onClose={() => setEditing(undefined)} onSaved={(next) => { onChange(next); setEditing(undefined); }} /> : null}
     </section>
   );
 }
@@ -342,23 +345,25 @@ const orderStatusClasses: Record<OrderStatus, string> = {
   cancelled: "bg-[#fff0ef] text-[#b42318]",
 };
 
-function formatMoney(value: number) {
-  return `${new Intl.NumberFormat("vi-VN").format(value)}₫`;
+function formatMoney(value: number, currencyCode: string) {
+  return formatCurrency(value, currencyCode, "vi");
 }
 
-function formatOrderTime(value: string) {
+function formatOrderTime(value: string, timezone: string) {
   return new Intl.DateTimeFormat("vi-VN", {
     dateStyle: "short",
     timeStyle: "short",
-    timeZone: "Asia/Ho_Chi_Minh",
+    timeZone: timezone,
   }).format(new Date(value));
 }
 
 function OrderCard({
   order,
+  timezone,
   onStatusUpdated,
 }: {
   order: AdminOrder;
+  timezone: string;
   onStatusUpdated: (orderId: string, status: OrderStatus) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -411,10 +416,10 @@ function OrderCard({
             </span>
           </div>
           <p className="mt-2 text-sm font-semibold text-[#343a40]">{order.customerName} · {order.customerPhone}</p>
-          <p className="mt-1 text-xs text-[#7a8289]">{formatOrderTime(order.createdAt)} · {order.items.length} mặt hàng</p>
+          <p className="mt-1 text-xs text-[#7a8289]">{formatOrderTime(order.createdAt, timezone)} · {order.items.length} mặt hàng</p>
         </div>
         <div className="flex items-center justify-between gap-4 sm:justify-end">
-          <strong className="text-base text-[#20252b]">{formatMoney(order.total)}</strong>
+          <strong className="text-base text-[#20252b]">{formatMoney(order.total, order.currencyCode)}</strong>
           <ChevronDown className={`size-5 text-[#687078] transition ${expanded ? "rotate-180" : ""}`} />
         </div>
       </button>
@@ -443,15 +448,15 @@ function OrderCard({
                   <div key={item.id} className="grid grid-cols-[1fr_auto] gap-3 py-3 first:pt-0 last:pb-0">
                     <div className="min-w-0">
                       <p className="font-semibold text-[#343a40]">{item.productName}</p>
-                      <p className="mt-1 text-xs text-[#747c83]">{formatMoney(item.unitPrice)} × {item.quantity}</p>
+                      <p className="mt-1 text-xs text-[#747c83]">{formatMoney(item.unitPrice, order.currencyCode)} × {item.quantity}</p>
                     </div>
-                    <p className="font-semibold text-[#30363b]">{formatMoney(item.lineTotal)}</p>
+                    <p className="font-semibold text-[#30363b]">{formatMoney(item.lineTotal, order.currencyCode)}</p>
                   </div>
                 ))}
               </div>
               <div className="mt-4 flex items-center justify-between border-t border-[#dfe3e6] pt-4">
                 <span className="font-bold text-[#30363b]">Tổng cộng</span>
-                <strong className="text-lg text-[#20252b]">{formatMoney(order.total)}</strong>
+                <strong className="text-lg text-[#20252b]">{formatMoney(order.total, order.currencyCode)}</strong>
               </div>
             </section>
           </div>
@@ -472,7 +477,7 @@ function OrderCard({
   );
 }
 
-function OrdersPanel() {
+function OrdersPanel({ timezone }: { timezone: string }) {
   const [ordersData, setOrdersData] = useState<AdminOrdersResponse | null>(null);
   const [query, setQuery] = useState("");
   const [fulfillmentMode, setFulfillmentMode] = useState<"" | FulfillmentMode>("");
@@ -549,7 +554,7 @@ function OrdersPanel() {
           <p className="mt-3 font-semibold text-[#596168]">Chưa có đơn hàng phù hợp.</p>
         </div>
       ) : null}
-      {ordersData?.orders.length ? <div className={`mt-4 grid gap-3 ${isLoading ? "opacity-60" : ""}`}>{ordersData.orders.map((order) => <OrderCard key={order.id} order={order} onStatusUpdated={updateOrderStatus} />)}</div> : null}
+      {ordersData?.orders.length ? <div className={`mt-4 grid gap-3 ${isLoading ? "opacity-60" : ""}`}>{ordersData.orders.map((order) => <OrderCard key={order.id} order={order} timezone={timezone} onStatusUpdated={updateOrderStatus} />)}</div> : null}
 
       {ordersData && ordersData.totalPages > 1 ? (
         <div className="mt-6 flex items-center justify-center gap-3">
@@ -562,12 +567,27 @@ function OrdersPanel() {
   );
 }
 
+function SiteImageField({ label, currentUrl, file, onFileChange }: { label: string; currentUrl: string | null; file: File | null; onFileChange: (file: File | null) => void }) {
+  return (
+    <div>
+      <p className="mb-2 text-sm font-semibold text-[#343a40]">{label}</p>
+      {currentUrl ? <Image src={currentUrl} alt={label} width={320} height={320} className="aspect-square w-full rounded-lg border border-[#e1e4e7] object-cover" /> : <div className="grid aspect-square place-items-center rounded-lg border border-dashed border-[#cbd1d5] bg-[#f7f8f9]"><ImagePlus className="size-8 text-[#8a9299]" /></div>}
+      <label className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-[#aeb5bb] p-2 text-xs font-semibold"><ImagePlus className="size-4" /> {file ? file.name : `Đổi ${label.toLocaleLowerCase()}`}<input type="file" accept="image/*" className="sr-only" onChange={(event) => onFileChange(event.target.files?.[0] ?? null)} /></label>
+    </div>
+  );
+}
+
 function ContentPanel({ data, onChange }: { data: AdminData; onChange: (data: AdminData) => void }) {
   const [language, setLanguage] = useState<LanguageCode>("vi");
   const [phone, setPhone] = useState(data.site.phone);
+  const [currencyCode, setCurrencyCode] = useState(data.site.currencyCode);
+  const [timezone, setTimezone] = useState(data.site.timezone);
   const [translations, setTranslations] = useState(mergeTranslations(data.site.translations));
   const [logo, setLogo] = useState<File | null>(null);
   const [cover, setCover] = useState<File | null>(null);
+  const [deliveryImage, setDeliveryImage] = useState<File | null>(null);
+  const [pickupImage, setPickupImage] = useState<File | null>(null);
+  const [productPlaceholder, setProductPlaceholder] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -582,13 +602,19 @@ function ContentPanel({ data, onChange }: { data: AdminData; onChange: (data: Ad
     setMessage("");
     try {
       const form = new FormData();
-      form.append("data", JSON.stringify({ phone, translations }));
+      form.append("data", JSON.stringify({ phone, currencyCode, timezone, translations }));
       if (logo) form.append("logo", logo);
       if (cover) form.append("cover", cover);
+      if (deliveryImage) form.append("deliveryImage", deliveryImage);
+      if (pickupImage) form.append("pickupImage", pickupImage);
+      if (productPlaceholder) form.append("productPlaceholder", productPlaceholder);
       const next = await jsonRequest<AdminData>("/api/admin/site", { method: "PUT", body: form });
       onChange(next);
       setLogo(null);
       setCover(null);
+      setDeliveryImage(null);
+      setPickupImage(null);
+      setProductPlaceholder(null);
       setMessage("Đã lưu nội dung website.");
     } catch {
       setMessage("Không thể lưu nội dung website.");
@@ -610,16 +636,19 @@ function ContentPanel({ data, onChange }: { data: AdminData; onChange: (data: Ad
               <input className={inputClass} value={phone} onChange={(event) => setPhone(event.target.value)} required />
             </label>
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="mb-2 text-sm font-semibold text-[#343a40]">Logo</p>
-                {data.site.logoUrl ? <Image src={data.site.logoUrl} alt="Logo hiện tại" width={160} height={160} className="aspect-square w-full rounded-lg border border-[#e1e4e7] object-cover" /> : null}
-                <label className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-[#aeb5bb] p-2 text-xs font-semibold"><ImagePlus className="size-4" /> {logo ? logo.name : "Đổi logo"}<input type="file" accept="image/*" className="sr-only" onChange={(event) => setLogo(event.target.files?.[0] ?? null)} /></label>
-              </div>
-              <div>
-                <p className="mb-2 text-sm font-semibold text-[#343a40]">Ảnh bìa</p>
-                {data.site.coverImageUrl ? <Image src={data.site.coverImageUrl} alt="Ảnh bìa hiện tại" width={320} height={320} className="aspect-square w-full rounded-lg border border-[#e1e4e7] object-cover" /> : null}
-                <label className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-[#aeb5bb] p-2 text-xs font-semibold"><ImagePlus className="size-4" /> {cover ? cover.name : "Đổi ảnh bìa"}<input type="file" accept="image/*" className="sr-only" onChange={(event) => setCover(event.target.files?.[0] ?? null)} /></label>
-              </div>
+              <label className={labelClass}>Mã tiền tệ
+                <input className={inputClass} value={currencyCode} onChange={(event) => setCurrencyCode(event.target.value.toUpperCase())} pattern="[A-Z]{3}" maxLength={3} required />
+              </label>
+              <label className={labelClass}>Múi giờ
+                <input className={inputClass} value={timezone} onChange={(event) => setTimezone(event.target.value)} required />
+              </label>
+            </div>
+            <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
+              <SiteImageField label="Logo" currentUrl={data.site.logoUrl} file={logo} onFileChange={setLogo} />
+              <SiteImageField label="Ảnh bìa" currentUrl={data.site.coverImageUrl} file={cover} onFileChange={setCover} />
+              <SiteImageField label="Ảnh giao hàng" currentUrl={data.site.deliveryImageUrl} file={deliveryImage} onFileChange={setDeliveryImage} />
+              <SiteImageField label="Ảnh khách đến lấy" currentUrl={data.site.pickupImageUrl} file={pickupImage} onFileChange={setPickupImage} />
+              <SiteImageField label="Ảnh sản phẩm mặc định" currentUrl={data.site.productPlaceholderUrl} file={productPlaceholder} onFileChange={setProductPlaceholder} />
             </div>
           </div>
           <div>
@@ -797,6 +826,7 @@ function CategoryForm({
 export function AdminApp() {
   const [session, setSession] = useState<"checking" | "guest" | "authenticated">("checking");
   const [data, setData] = useState<AdminData | null>(null);
+  const [branding, setBranding] = useState<SiteContent | null>(null);
   const [active, setActive] = useState<"products" | "categories" | "orders" | "content">("products");
   const [error, setError] = useState("");
 
@@ -820,6 +850,15 @@ export function AdminApp() {
     return () => window.clearTimeout(timer);
   }, [load]);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void jsonRequest<StorefrontData>("/api/storefront?lang=vi")
+        .then((storefront) => setBranding(storefront.site))
+        .catch(() => undefined);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   async function logout() {
     await jsonRequest("/api/admin/session", { method: "DELETE" }).catch(() => undefined);
     setData(null);
@@ -827,14 +866,17 @@ export function AdminApp() {
   }
 
   if (session === "checking") return <main className="grid min-h-dvh place-items-center bg-[#eef1f3] text-sm text-[#687078]">Đang kiểm tra phiên đăng nhập...</main>;
-  if (session === "guest") return <LoginScreen onSuccess={() => void load()} />;
+  if (session === "guest") return <LoginScreen site={branding} onSuccess={() => void load()} />;
+
+  const siteName = data?.site.translations.vi?.name || branding?.name || "cửa hàng";
+  const siteLogoUrl = data?.site.logoUrl || branding?.logoUrl;
 
   return (
     <main className="h-dvh overflow-y-auto bg-[#eef1f3] text-[#232323]">
       <header className="sticky top-0 z-30 border-b border-black/10 bg-[#141d27] text-white">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6">
-          <Image src="/images/logo.jpg" alt="Tiệm Tiện Lợi Mỹ Trân" width={42} height={42} className="size-10 rounded-lg object-cover" />
-          <div className="min-w-0 flex-1"><p className="truncate font-bold">Quản trị Tiệm Tiện Lợi Mỹ Trân</p><p className="text-xs text-white/60">Cửa hàng trực tuyến</p></div>
+          {siteLogoUrl ? <Image src={siteLogoUrl} alt={siteName} width={42} height={42} className="size-10 rounded-lg object-cover" /> : <div className="grid size-10 place-items-center rounded-lg bg-white/10"><Store className="size-5" /></div>}
+          <div className="min-w-0 flex-1"><p className="truncate font-bold">Quản trị {siteName}</p><p className="text-xs text-white/60">Cửa hàng trực tuyến</p></div>
           <button onClick={() => void logout()} className="flex items-center gap-2 rounded-lg border border-white/20 px-3 py-2 text-sm font-semibold hover:bg-white/10"><LogOut className="size-4" /><span className="hidden sm:inline">Đăng xuất</span></button>
         </div>
       </header>
@@ -850,7 +892,7 @@ export function AdminApp() {
           {!error && !data ? <div className="grid gap-3"><div className="h-24 animate-pulse rounded-xl bg-white" /><div className="h-28 animate-pulse rounded-xl bg-white" /><div className="h-28 animate-pulse rounded-xl bg-white" /></div> : null}
           {data && active === "products" ? <ProductsPanel data={data} onChange={setData} /> : null}
           {data && active === "categories" ? <CategoriesPanel data={data} onChange={setData} /> : null}
-          {data && active === "orders" ? <OrdersPanel /> : null}
+          {data && active === "orders" ? <OrdersPanel timezone={data.site.timezone} /> : null}
           {data && active === "content" ? <ContentPanel data={data} onChange={setData} /> : null}
         </div>
       </div>

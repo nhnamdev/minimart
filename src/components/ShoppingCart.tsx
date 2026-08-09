@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Image from "next/image";
 
 import { DeliveryCheckoutDialog } from "@/components/DeliveryCheckoutDialog";
-import { formatVnd } from "@/lib/currency";
+import { formatCurrency } from "@/lib/currency";
 import { CartIcon, CloseIcon, MinusIcon, PlusIcon } from "@/components/icons";
 import { PickupCheckoutDialog } from "@/components/PickupCheckoutDialog";
 import { useLanguage } from "@/context/LanguageContext";
@@ -14,6 +14,7 @@ interface ShoppingCartProps {
   fulfillmentMode: "delivery" | "pickup";
   storeAddress: string | null;
   storePhone: string;
+  currencyCode: string;
   products: Product[];
   quantities: CartQuantities;
   onQuantityChange: (productId: string, next: number) => void;
@@ -26,6 +27,7 @@ export function ShoppingCart({
   fulfillmentMode,
   storeAddress,
   storePhone,
+  currencyCode,
   products,
   quantities,
   onQuantityChange,
@@ -101,6 +103,7 @@ export function ShoppingCart({
           products={products}
           quantities={quantities}
           storePhone={storePhone}
+          currencyCode={currencyCode}
           onCancel={() => setIsDeliveryCheckoutOpen(false)}
           onConfirm={submitOrder}
         />
@@ -112,6 +115,7 @@ export function ShoppingCart({
           quantities={quantities}
           storeAddress={storeAddress}
           storePhone={storePhone}
+          currencyCode={currencyCode}
           onCancel={() => setIsPickupCheckoutOpen(false)}
           onConfirm={submitOrder}
         />
@@ -182,7 +186,7 @@ export function ShoppingCart({
                       {product.name}
                     </p>
                     <p className="mt-0.5 text-[12px] font-semibold text-[#f05045]">
-                      {formatVnd(product.price)}
+                      {formatCurrency(product.price, currencyCode, language)}
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -247,7 +251,7 @@ export function ShoppingCart({
               hasItems ? "text-white" : "text-white/45"
             }`}
           >
-            {formatVnd(total)}
+            {formatCurrency(total, currencyCode, language)}
           </span>
         </button>
 

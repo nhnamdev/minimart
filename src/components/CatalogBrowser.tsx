@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { formatVnd } from "@/lib/currency";
+import { formatCurrency } from "@/lib/currency";
 import { useLanguage } from "@/context/LanguageContext";
 import type { CartQuantities, Category, Product } from "@/types/catalog";
 
@@ -11,6 +11,7 @@ import { CloseIcon, MinusIcon, PlusIcon } from "./icons";
 
 interface CatalogBrowserProps {
   categories: Category[];
+  currencyCode: string;
   searchTerm: string;
   quantities: CartQuantities;
   onQuantityChange: (productId: string, next: number) => void;
@@ -18,11 +19,12 @@ interface CatalogBrowserProps {
 
 export function CatalogBrowser({
   categories,
+  currencyCode,
   searchTerm,
   quantities,
   onQuantityChange,
 }: CatalogBrowserProps) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const paneRef = useRef<HTMLDivElement>(null);
   const [activeCategory, setActiveCategory] = useState(categories[0]?.id ?? "");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -184,7 +186,7 @@ export function CatalogBrowser({
                         </span>
                       ) : null}
                       <span className="mt-auto text-[4.3vw] leading-none font-bold text-[#fb4f45] md:text-lg">
-                        {formatVnd(product.price)}
+                        {formatCurrency(product.price, currencyCode, language)}
                       </span>
                     </button>
 
@@ -267,7 +269,7 @@ export function CatalogBrowser({
               </p>
             ) : null}
             <p className="mt-4 text-2xl font-bold text-[#fb4f45]">
-              {formatVnd(selectedProduct.price)}
+              {formatCurrency(selectedProduct.price, currencyCode, language)}
             </p>
           </div>
         </div>

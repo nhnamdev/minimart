@@ -31,7 +31,7 @@ let storefrontCacheVersion = 0;
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 12 * 1024 * 1024, files: 2 },
+  limits: { fileSize: 12 * 1024 * 1024, files: 5 },
   fileFilter(_request, file, callback) {
     if (!file.mimetype.startsWith("image/")) {
       callback(new Error("INVALID_IMAGE_TYPE"));
@@ -91,6 +91,22 @@ function validateSlug(value) {
   return slug;
 }
 
+function validateCurrencyCode(value) {
+  const code = cleanText(value, 3, true).toUpperCase();
+  if (!/^[A-Z]{3}$/.test(code)) throw new Error("INVALID_CURRENCY_CODE");
+  return code;
+}
+
+function validateTimezone(value) {
+  const timezone = cleanText(value, 50, true);
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format();
+  } catch {
+    throw new Error("INVALID_TIMEZONE");
+  }
+  return timezone;
+}
+
 function toPositiveId(value) {
   const id = Number(value);
   if (!Number.isSafeInteger(id) || id < 1) throw new Error("INVALID_ID");
@@ -113,7 +129,9 @@ function translationMap(rows, idField) {
 async function fetchStorefront(languageCode) {
   const [siteRows] = await pool.execute(
     `SELECT s.id, s.phone, s.currency_code, s.timezone, s.logo_url, s.logo_key,
-            s.cover_image_url, s.cover_image_key,
+            s.cover_image_url, s.cover_image_key, s.delivery_image_url, s.delivery_image_key,
+            s.pickup_image_url, s.pickup_image_key,
+            s.product_placeholder_url, s.product_placeholder_key,
             COALESCE(st.name, vi.name) AS name,
             COALESCE(st.tagline, vi.tagline) AS tagline,
             COALESCE(st.opening_hours, vi.opening_hours) AS opening_hours,
@@ -147,11 +165,13 @@ async function fetchStorefront(languageCode) {
   );
   const [productRows] = await pool.execute(
     `SELECT p.id, p.category_id, p.slug, p.sku, p.price, p.image_url, p.image_key,
+            s.product_placeholder_url, s.product_placeholder_key,
             p.is_sold_out, p.sort_order,
             COALESCE(pt.name, vi.name) AS name,
             COALESCE(pt.description, vi.description) AS description
        FROM products p
        INNER JOIN categories c ON c.id = p.category_id
+       INNER JOIN sites s ON s.id = c.site_id
        LEFT JOIN product_translations pt
          ON pt.product_id = p.id AND pt.language_code = ?
        LEFT JOIN product_translations vi
@@ -173,7 +193,11 @@ async function fetchStorefront(languageCode) {
       name: product.name,
       description: product.description,
       price: Number(product.price),
-      image: product.image_key ? mediaUrl(product.image_key) : product.image_url,
+      image: product.image_key
+        ? mediaUrl(product.image_key)
+        : (product.image_url || (product.product_placeholder_key
+          ? mediaUrl(product.product_placeholder_key)
+          : product.product_placeholder_url)),
       soldOut: Boolean(product.is_sold_out),
     });
   }
@@ -191,6 +215,11 @@ async function fetchStorefront(languageCode) {
       timezone: site.timezone,
       logoUrl: site.logo_key ? mediaUrl(site.logo_key) : site.logo_url,
       coverImageUrl: site.cover_image_key ? mediaUrl(site.cover_image_key) : site.cover_image_url,
+      deliveryImageUrl: site.delivery_image_key ? mediaUrl(site.delivery_image_key) : site.delivery_image_url,
+      pickupImageUrl: site.pickup_image_key ? mediaUrl(site.pickup_image_key) : site.pickup_image_url,
+      productPlaceholderUrl: site.product_placeholder_key
+        ? mediaUrl(site.product_placeholder_key)
+        : site.product_placeholder_url,
       seoTitle: site.seo_title,
       seoDescription: site.seo_description,
     },
@@ -283,6 +312,11 @@ async function fetchAdminData() {
       timezone: site.timezone,
       logoUrl: site.logo_key ? mediaUrl(site.logo_key) : site.logo_url,
       coverImageUrl: site.cover_image_key ? mediaUrl(site.cover_image_key) : site.cover_image_url,
+      deliveryImageUrl: site.delivery_image_key ? mediaUrl(site.delivery_image_key) : site.delivery_image_url,
+      pickupImageUrl: site.pickup_image_key ? mediaUrl(site.pickup_image_key) : site.pickup_image_url,
+      productPlaceholderUrl: site.product_placeholder_key
+        ? mediaUrl(site.product_placeholder_key)
+        : site.product_placeholder_url,
       translations: siteTranslations,
     },
     categories: categoryRows.map((category) => ({
@@ -460,9 +494,10 @@ app.post("/api/orders", asyncRoute(async (request, response) => {
     const productIds = [...requestedItems.keys()];
     const [rows] = await connection.query(
       `SELECT p.id, p.price, p.image_url, p.image_key, p.is_active, p.is_sold_out,
-              COALESCE(pt.name, vi.name) AS name, c.site_id
+              COALESCE(pt.name, vi.name) AS name, c.site_id, s.currency_code
          FROM products p
          INNER JOIN categories c ON c.id = p.category_id
+         INNER JOIN sites s ON s.id = c.site_id
          LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.language_code = ?
          LEFT JOIN product_translations vi ON vi.product_id = p.id AND vi.language_code = 'vi'
         WHERE p.id IN (?) FOR UPDATE`,
@@ -480,10 +515,10 @@ app.post("/api/orders", asyncRoute(async (request, response) => {
     const [orderResult] = await connection.execute(
       `INSERT INTO orders
         (order_code, site_id, language_code, fulfillment_mode, customer_name,
-         customer_phone, delivery_address, customer_note, subtotal, total)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         customer_phone, delivery_address, customer_note, currency_code, subtotal, total)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [orderCode, rows[0].site_id, languageCode, fulfillmentMode, customerName,
-        customerPhone, deliveryAddress, customerNote, subtotal, subtotal],
+        customerPhone, deliveryAddress, customerNote, rows[0].currency_code, subtotal, subtotal],
     );
 
     for (const product of rows) {
@@ -615,10 +650,18 @@ app.patch("/api/admin/orders/:id/status", requireAdmin, asyncRoute(async (reques
 app.put(
   "/api/admin/site",
   requireAdmin,
-  upload.fields([{ name: "logo", maxCount: 1 }, { name: "cover", maxCount: 1 }]),
+  upload.fields([
+    { name: "logo", maxCount: 1 },
+    { name: "cover", maxCount: 1 },
+    { name: "deliveryImage", maxCount: 1 },
+    { name: "pickupImage", maxCount: 1 },
+    { name: "productPlaceholder", maxCount: 1 },
+  ]),
   asyncRoute(async (request, response) => {
     const data = parseJsonField(request);
     const phone = cleanText(data.phone, 30, true);
+    const currencyCode = validateCurrencyCode(data.currencyCode);
+    const timezone = validateTimezone(data.timezone);
     const [siteRows] = await pool.query("SELECT * FROM sites ORDER BY id LIMIT 1");
     const site = siteRows[0];
     const files = request.files ?? {};
@@ -633,16 +676,36 @@ app.put(
         ? await uploadImage(files.cover[0].buffer, "site", "cover")
         : null;
       if (cover) uploaded.push(cover.key);
+      const deliveryImage = files.deliveryImage?.[0]
+        ? await uploadImage(files.deliveryImage[0].buffer, "site", "delivery")
+        : null;
+      if (deliveryImage) uploaded.push(deliveryImage.key);
+      const pickupImage = files.pickupImage?.[0]
+        ? await uploadImage(files.pickupImage[0].buffer, "site", "pickup")
+        : null;
+      if (pickupImage) uploaded.push(pickupImage.key);
+      const productPlaceholder = files.productPlaceholder?.[0]
+        ? await uploadImage(files.productPlaceholder[0].buffer, "site", "product-placeholder")
+        : null;
+      if (productPlaceholder) uploaded.push(productPlaceholder.key);
 
       const connection = await pool.getConnection();
       try {
         await connection.beginTransaction();
         await connection.execute(
-          `UPDATE sites SET phone = ?,
+          `UPDATE sites SET phone = ?, currency_code = ?, timezone = ?,
              logo_url = COALESCE(?, logo_url), logo_key = COALESCE(?, logo_key),
-             cover_image_url = COALESCE(?, cover_image_url), cover_image_key = COALESCE(?, cover_image_key)
+             cover_image_url = COALESCE(?, cover_image_url), cover_image_key = COALESCE(?, cover_image_key),
+             delivery_image_url = COALESCE(?, delivery_image_url), delivery_image_key = COALESCE(?, delivery_image_key),
+             pickup_image_url = COALESCE(?, pickup_image_url), pickup_image_key = COALESCE(?, pickup_image_key),
+             product_placeholder_url = COALESCE(?, product_placeholder_url),
+             product_placeholder_key = COALESCE(?, product_placeholder_key)
            WHERE id = ?`,
-          [phone, logo?.url ?? null, logo?.key ?? null, cover?.url ?? null, cover?.key ?? null, site.id],
+          [phone, currencyCode, timezone,
+            logo?.url ?? null, logo?.key ?? null, cover?.url ?? null, cover?.key ?? null,
+            deliveryImage?.url ?? null, deliveryImage?.key ?? null,
+            pickupImage?.url ?? null, pickupImage?.key ?? null,
+            productPlaceholder?.url ?? null, productPlaceholder?.key ?? null, site.id],
         );
 
         for (const languageCode of languageCodes) {
@@ -677,6 +740,9 @@ app.put(
 
       if (logo && site.logo_key) deleteImage(site.logo_key).catch(console.error);
       if (cover && site.cover_image_key) deleteImage(site.cover_image_key).catch(console.error);
+      if (deliveryImage && site.delivery_image_key) deleteImage(site.delivery_image_key).catch(console.error);
+      if (pickupImage && site.pickup_image_key) deleteImage(site.pickup_image_key).catch(console.error);
+      if (productPlaceholder && site.product_placeholder_key) deleteImage(site.product_placeholder_key).catch(console.error);
       invalidateStorefrontCache();
       return response.json(await fetchAdminData());
     } catch (error) {
@@ -820,7 +886,7 @@ async function saveProduct(request, response, productId = null) {
             (category_id, slug, sku, price, image_url, image_key, is_sold_out, is_active, sort_order)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [categoryId, slug, cleanText(data.sku, 100), price,
-            uploaded?.url ?? "/images/order-multi/product-placeholder.jpg", uploaded?.key ?? null,
+            uploaded?.url ?? null, uploaded?.key ?? null,
             Boolean(data.soldOut), data.active !== false, Number(data.sortOrder) || 0],
         );
         productId = result.insertId;
@@ -906,7 +972,7 @@ app.use((error, _request, response, _next) => {
   const clientErrors = new Set([
     "REQUIRED_FIELD", "FIELD_TOO_LONG", "INVALID_FORM_DATA", "INVALID_SLUG",
     "INVALID_ID", "INVALID_PRICE", "INVALID_SORT_ORDER", "INVALID_IMAGE_TYPE", "INVALID_FULFILLMENT",
-    "INVALID_ORDER_STATUS", "INVALID_ORDER_CODE",
+    "INVALID_ORDER_STATUS", "INVALID_ORDER_CODE", "INVALID_CURRENCY_CODE", "INVALID_TIMEZONE",
     "INVALID_QUANTITY", "EMPTY_ORDER", "DELIVERY_ADDRESS_REQUIRED", "CATEGORY_NOT_FOUND",
     "PRODUCT_UNAVAILABLE",
   ]);

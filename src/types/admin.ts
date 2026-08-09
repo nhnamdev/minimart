@@ -19,6 +19,9 @@ export interface AdminSite {
   timezone: string;
   logoUrl: string | null;
   coverImageUrl: string | null;
+  deliveryImageUrl: string | null;
+  pickupImageUrl: string | null;
+  productPlaceholderUrl: string | null;
   translations: AdminTranslations;
 }
 

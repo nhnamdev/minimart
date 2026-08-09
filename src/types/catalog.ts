@@ -32,6 +32,9 @@ export interface SiteContent {
   timezone: string;
   logoUrl: string | null;
   coverImageUrl: string | null;
+  deliveryImageUrl: string | null;
+  pickupImageUrl: string | null;
+  productPlaceholderUrl: string | null;
   seoTitle: string | null;
   seoDescription: string | null;
 }

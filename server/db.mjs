@@ -40,6 +40,29 @@ async function applySchema() {
   }
 }
 
+async function ensureSiteMediaColumns() {
+  const definitions = {
+    delivery_image_url: "VARCHAR(1000) NULL",
+    delivery_image_key: "VARCHAR(1000) CHARACTER SET ascii COLLATE ascii_bin NULL",
+    pickup_image_url: "VARCHAR(1000) NULL",
+    pickup_image_key: "VARCHAR(1000) CHARACTER SET ascii COLLATE ascii_bin NULL",
+    product_placeholder_url: "VARCHAR(1000) NULL",
+    product_placeholder_key: "VARCHAR(1000) CHARACTER SET ascii COLLATE ascii_bin NULL",
+  };
+  const [rows] = await pool.query("SHOW COLUMNS FROM sites");
+  const existing = new Set(rows.map((row) => row.Field));
+  for (const [column, definition] of Object.entries(definitions)) {
+    if (!existing.has(column)) await pool.query(`ALTER TABLE sites ADD COLUMN ${column} ${definition}`);
+  }
+  await pool.execute(
+    `UPDATE sites SET
+       delivery_image_url = COALESCE(delivery_image_url, ?),
+       pickup_image_url = COALESCE(pickup_image_url, ?),
+       product_placeholder_url = COALESCE(product_placeholder_url, ?)`,
+    [initialSite.deliveryImageUrl, initialSite.pickupImageUrl, initialSite.productPlaceholderUrl],
+  );
+}
+
 async function ensureAdmin() {
   const [rows] = await pool.execute(
     "SELECT id FROM admin_users WHERE username = ? LIMIT 1",
@@ -63,14 +86,18 @@ async function seedCatalog() {
     await connection.beginTransaction();
     const [siteResult] = await connection.execute(
       `INSERT INTO sites
-        (phone, currency_code, timezone, logo_url, cover_image_url)
-       VALUES (?, ?, ?, ?, ?)`,
+        (phone, currency_code, timezone, logo_url, cover_image_url,
+         delivery_image_url, pickup_image_url, product_placeholder_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         initialSite.phone,
         initialSite.currencyCode,
         initialSite.timezone,
         initialSite.logoUrl,
         initialSite.coverImageUrl,
+        initialSite.deliveryImageUrl,
+        initialSite.pickupImageUrl,
+        initialSite.productPlaceholderUrl,
       ],
     );
     const siteId = siteResult.insertId;
@@ -146,6 +173,7 @@ async function seedCatalog() {
 
 export async function initializeDatabase() {
   await applySchema();
+  await ensureSiteMediaColumns();
   await ensureAdmin();
   await seedCatalog();
 }

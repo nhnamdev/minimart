@@ -163,6 +163,7 @@ export function Storefront() {
         <>
           <CatalogBrowser
             categories={data.categories}
+            currencyCode={data.site.currencyCode}
             searchTerm={searchTerm}
             quantities={quantities}
             onQuantityChange={updateQuantity}
@@ -171,6 +172,7 @@ export function Storefront() {
             fulfillmentMode={fulfillmentMode}
             storeAddress={data.site.address}
             storePhone={data.site.phone}
+            currencyCode={data.site.currencyCode}
             products={products}
             quantities={quantities}
             onQuantityChange={updateQuantity}

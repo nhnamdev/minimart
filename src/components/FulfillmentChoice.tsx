@@ -3,9 +3,11 @@
 import Image from "next/image";
 
 import {
+  DeliveryIcon,
   GlobeIcon,
   LocationIcon,
   PhoneIcon,
+  PickupIcon,
 } from "@/components/icons";
 import { useLanguage } from "@/context/LanguageContext";
 import { languageOptions } from "@/lib/i18n";
@@ -22,29 +24,15 @@ export function FulfillmentChoice({ site, onSelect }: FulfillmentChoiceProps) {
   return (
     <main className="flex min-h-dvh w-full flex-col overflow-y-auto bg-[#f3f5f7] md:mx-auto md:max-w-4xl md:shadow-[0_0_32px_rgba(7,17,27,.08)]">
       <header className="relative isolate overflow-hidden text-white">
-        <div aria-hidden="true" className="absolute -inset-[2vw] -z-20 blur-[3vw] md:-inset-6 md:blur-3xl">
-          <Image
-            src={site.coverImageUrl || "/images/order-multi/store-avatar.jpg"}
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-          />
-        </div>
+        {site.coverImageUrl ? <div aria-hidden="true" className="absolute -inset-[2vw] -z-20 blur-[3vw] md:-inset-6 md:blur-3xl">
+          <Image src={site.coverImageUrl} alt="" fill preload sizes="100vw" className="object-cover" />
+        </div> : null}
         <div aria-hidden="true" className="absolute inset-0 -z-10 bg-[rgba(7,17,27,.5)]" />
 
         <div className="flex px-[4vw] py-[4vw] md:px-8 md:py-6">
-          <div className="relative size-[18vw] shrink-0 overflow-hidden rounded-[1vw] md:size-24 md:rounded-lg">
-            <Image
-              src={site.logoUrl || "/images/logo.jpg"}
-              alt={site.name}
-              fill
-              priority
-              sizes="18vw"
-              className="object-cover"
-            />
-          </div>
+          {site.logoUrl ? <div className="relative size-[18vw] shrink-0 overflow-hidden rounded-[1vw] md:size-24 md:rounded-lg">
+            <Image src={site.logoUrl} alt={site.name} fill preload sizes="18vw" className="object-cover" />
+          </div> : null}
 
           <div className="ml-[1.5vw] min-w-0 flex-1 md:ml-4">
             <h1 className="text-[4.3vw] leading-[5vw] font-bold md:text-2xl md:leading-7">{site.name}</h1>
@@ -82,14 +70,7 @@ export function FulfillmentChoice({ site, onSelect }: FulfillmentChoiceProps) {
           className="flex flex-1 flex-col items-center justify-center px-[3vw] pt-[9vw] pb-[9vw] active:bg-[#fafafa] md:px-8 md:py-10"
         >
           <span className="mb-[3.5vw] text-center text-[4.5vw] font-bold md:mb-5 md:text-2xl">{t("delivery")}</span>
-          <Image
-            src="/images/giao-hang.jpg"
-            alt=""
-            width={1280}
-            height={1280}
-            sizes="10vw"
-            className="size-[10vw] object-contain md:size-32 md:rounded-xl"
-          />
+          {site.deliveryImageUrl ? <Image src={site.deliveryImageUrl} alt="" width={1280} height={1280} sizes="10vw" className="size-[10vw] object-contain md:size-32 md:rounded-xl" /> : <DeliveryIcon className="size-[10vw] md:size-32" />}
         </button>
 
         <div aria-hidden="true" className="my-[2vw] w-px bg-[#ccc] md:my-6" />
@@ -100,14 +81,7 @@ export function FulfillmentChoice({ site, onSelect }: FulfillmentChoiceProps) {
           className="flex flex-1 flex-col items-center justify-center px-[3vw] pt-[9vw] pb-[9vw] active:bg-[#fafafa] md:px-8 md:py-10"
         >
           <span className="mb-[3.5vw] text-center text-[4.5vw] font-bold md:mb-5 md:text-2xl">{t("pickup")}</span>
-          <Image
-            src="/images/pickup.jpg"
-            alt=""
-            width={1280}
-            height={1280}
-            sizes="10vw"
-            className="size-[10vw] object-contain md:size-32 md:rounded-xl"
-          />
+          {site.pickupImageUrl ? <Image src={site.pickupImageUrl} alt="" width={1280} height={1280} sizes="10vw" className="size-[10vw] object-contain md:size-32 md:rounded-xl" /> : <PickupIcon className="size-[10vw] md:size-32" />}
         </button>
       </section>
 

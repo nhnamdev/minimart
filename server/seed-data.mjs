@@ -4,6 +4,9 @@ export const initialSite = {
   timezone: "Asia/Ho_Chi_Minh",
   logoUrl: "/images/logo.jpg",
   coverImageUrl: "/images/order-multi/store-avatar.jpg",
+  deliveryImageUrl: "/images/giao-hang.jpg",
+  pickupImageUrl: "/images/pickup.jpg",
+  productPlaceholderUrl: "/images/order-multi/product-placeholder.jpg",
   translations: {
     vi: {
       name: "Tiệm Tiện Lợi Mỹ Trân",
