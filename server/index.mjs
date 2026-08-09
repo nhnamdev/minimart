@@ -79,7 +79,7 @@ function parseJsonField(request) {
 }
 
 function validateLanguage(value) {
-  return languageCodes.includes(value) ? value : "vi";
+  return languageCodes.includes(value) ? value : "zh-Hans";
 }
 
 function validateSlug(value) {

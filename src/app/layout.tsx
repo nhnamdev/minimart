@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Cửa hàng tiện lợi MiniMart",
-  description: "Đặt hàng trực tuyến tại Cửa hàng tiện lợi MiniMart",
+  title: "MiniMart 便利店",
+  description: "MiniMart 便利店在线订购",
 };
 
 export default function RootLayout({
@@ -12,7 +12,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi">
+    <html lang="zh-Hans">
       <body>{children}</body>
     </html>
   );

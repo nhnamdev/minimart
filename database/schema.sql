@@ -1,8 +1,8 @@
 -- MiniMart - MySQL 8 schema
 -- Four supported languages:
---   vi      Vietnamese (default)
+--   vi      Vietnamese
 --   en      English
---   zh-Hans Simplified Chinese
+--   zh-Hans Simplified Chinese (default)
 --   zh-Hant Traditional Chinese
 --
 -- All customer-facing text uses utf8mb4. Base tables contain shared data;
@@ -24,9 +24,9 @@ CREATE TABLE IF NOT EXISTS `languages` (
 INSERT INTO `languages`
   (`code`, `name`, `native_name`, `is_default`, `is_active`, `sort_order`)
 VALUES
-  ('vi', 'Vietnamese', 'Tiếng Việt', TRUE, TRUE, 1),
+  ('vi', 'Vietnamese', 'Tiếng Việt', FALSE, TRUE, 1),
   ('en', 'English', 'English', FALSE, TRUE, 2),
-  ('zh-Hans', 'Simplified Chinese', '简体中文', FALSE, TRUE, 3),
+  ('zh-Hans', 'Simplified Chinese', '简体中文', TRUE, TRUE, 3),
   ('zh-Hant', 'Traditional Chinese', '繁體中文', FALSE, TRUE, 4)
 ON DUPLICATE KEY UPDATE
   `name` = VALUES(`name`),
