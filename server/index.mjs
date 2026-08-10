@@ -1068,14 +1068,24 @@ app.use("/api", (_request, response) => response.status(404).json({ error: "API_
 app.use(express.static(outDirectory, {
   extensions: ["html"],
   setHeaders(response, filePath) {
-    if (filePath.endsWith(".html")) response.setHeader("Cache-Control", "no-cache");
+    if (filePath.endsWith(".html")) response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     else if (filePath.includes(`${path.sep}_next${path.sep}static${path.sep}`)) {
       response.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     }
   },
 }));
-app.get("/", (_request, response) => response.sendFile(path.join(outDirectory, "index.html")));
-app.get("/admin", (_request, response) => response.sendFile(path.join(outDirectory, "admin.html")));
+app.get(/^\/_next\/static\/chunks\/.+\.js$/, (_request, response) => {
+  response
+    .status(200)
+    .type("application/javascript")
+    .set("Cache-Control", "no-store")
+    .send("window.location.reload();");
+});
+const sendHtml = (fileName) => (_request, response) => response
+  .set("Cache-Control", "no-store, no-cache, must-revalidate")
+  .sendFile(path.join(outDirectory, fileName));
+app.get("/", sendHtml("index.html"));
+app.get("/admin", sendHtml("admin.html"));
 
 app.use((error, _request, response, _next) => {
   void _next;
