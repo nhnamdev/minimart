@@ -108,6 +108,31 @@ function validateSlug(value) {
   return slug;
 }
 
+function generateSlug(value, fallback) {
+  const slug = value
+    .normalize("NFD")
+    .replaceAll("đ", "d")
+    .replaceAll("Đ", "D")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 160)
+    .replace(/-+$/g, "");
+  return slug || fallback;
+}
+
+async function createUniqueProductSlug(name) {
+  const base = generateSlug(name, "san-pham");
+  for (let index = 1; index <= 9999; index += 1) {
+    const suffix = index === 1 ? "" : `-${index}`;
+    const candidate = `${base.slice(0, 160 - suffix.length).replace(/-+$/g, "")}${suffix}`;
+    const [rows] = await pool.execute("SELECT id FROM products WHERE slug = ? LIMIT 1", [candidate]);
+    if (rows.length === 0) return candidate;
+  }
+  throw new Error("DUPLICATE_VALUE");
+}
+
 function validateCurrencyCode(value) {
   const code = cleanText(value, 3, true).toUpperCase();
   if (!/^[A-Z]{3}$/.test(code)) throw new Error("INVALID_CURRENCY_CODE");
@@ -933,11 +958,10 @@ app.delete("/api/admin/categories/:id", requireAdmin, asyncRoute(async (request,
 async function saveProduct(request, response, productId = null) {
   const data = parseJsonField(request);
   const categoryId = toPositiveId(data.categoryId);
-  const slug = validateSlug(data.slug);
   const price = Number(data.price);
   if (!Number.isFinite(price) || price < 0 || price > 9999999999999) throw new Error("INVALID_PRICE");
   const translations = data.translations ?? {};
-  cleanText(translations.vi?.name, 255, true);
+  const vietnameseName = cleanText(translations.vi?.name, 255, true);
 
   let previous = null;
   if (productId) {
@@ -945,6 +969,7 @@ async function saveProduct(request, response, productId = null) {
     if (rows.length === 0) return response.status(404).json({ error: "PRODUCT_NOT_FOUND" });
     previous = rows[0];
   }
+  const slug = previous?.slug ?? await createUniqueProductSlug(vietnameseName);
 
   let uploaded = null;
   try {
@@ -960,11 +985,11 @@ async function saveProduct(request, response, productId = null) {
 
       if (productId) {
         await connection.execute(
-          `UPDATE products SET category_id = ?, slug = ?, sku = ?, price = ?,
+          `UPDATE products SET category_id = ?, sku = ?, price = ?,
              image_url = COALESCE(?, image_url), image_key = COALESCE(?, image_key),
              is_sold_out = ?, is_active = ?, sort_order = ?
            WHERE id = ?`,
-          [categoryId, slug, cleanText(data.sku, 100), price,
+          [categoryId, cleanText(data.sku, 100), price,
             uploaded?.url ?? null, uploaded?.key ?? null, Boolean(data.soldOut),
             data.active !== false, Number(data.sortOrder) || 0, productId],
         );

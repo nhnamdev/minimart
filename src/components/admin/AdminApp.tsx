@@ -121,7 +121,6 @@ function LoginScreen({ onSuccess, site }: { onSuccess: () => void; site: SiteCon
 
 interface ProductDraft {
   categoryId: string;
-  slug: string;
   sku: string;
   price: string;
   soldOut: boolean;
@@ -149,7 +148,6 @@ function ProductEditor({
   const [isSaving, setIsSaving] = useState(false);
   const [draft, setDraft] = useState<ProductDraft>({
     categoryId: product?.categoryId ?? categories[0]?.id ?? "",
-    slug: product?.slug ?? "",
     sku: product?.sku ?? "",
     price: product ? String(product.price) : "",
     soldOut: product?.soldOut ?? false,
@@ -189,7 +187,7 @@ function ProductEditor({
       onSaved(data);
     } catch (requestError) {
       const code = requestError instanceof Error ? requestError.message : "REQUEST_FAILED";
-      setError(code === "DUPLICATE_VALUE" ? "Slug 或 SKU 已存在。" : "无法保存商品，请检查必填字段。");
+      setError(code === "DUPLICATE_VALUE" ? "SKU 已存在。" : "无法保存商品，请检查必填字段。");
     } finally {
       setIsSaving(false);
     }
@@ -225,9 +223,6 @@ function ProductEditor({
               <select className={inputClass} value={draft.categoryId} onChange={(event) => setDraft({ ...draft, categoryId: event.target.value })} required>
                 {categories.map((category) => <option key={category.id} value={category.id}>{category.translations["zh-Hans"]?.name || category.translations.vi?.name || category.slug}{category.active ? "" : "（已隐藏）"}</option>)}
               </select>
-            </label>
-            <label className={labelClass}>Slug
-              <input className={inputClass} value={draft.slug} onChange={(event) => setDraft({ ...draft, slug: event.target.value.toLowerCase() })} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required />
             </label>
             <div className="grid grid-cols-2 gap-3">
               <label className={labelClass}>价格（{currencyCode}）
@@ -276,7 +271,7 @@ function ProductsPanel({ data, onChange }: { data: AdminData; onChange: (data: A
   const products = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     if (!normalized) return data.products;
-    return data.products.filter((product) => `${product.translations["zh-Hans"]?.name ?? ""} ${product.translations.vi?.name ?? ""} ${product.slug} ${product.sku}`.toLocaleLowerCase().includes(normalized));
+    return data.products.filter((product) => `${product.translations["zh-Hans"]?.name ?? ""} ${product.translations.vi?.name ?? ""} ${product.sku}`.toLocaleLowerCase().includes(normalized));
   }, [data.products, query]);
   const categoryNames = new Map(data.categories.map((category) => [category.id, category.translations["zh-Hans"]?.name || category.translations.vi?.name || category.slug]));
 
@@ -300,7 +295,7 @@ function ProductsPanel({ data, onChange }: { data: AdminData; onChange: (data: A
         </div>
         <button onClick={() => setEditing(null)} className="flex items-center justify-center gap-2 rounded-lg bg-[#fdbc24] px-4 py-3 font-bold text-[#20252b] hover:bg-[#efae14] active:translate-y-px"><Plus className="size-4" /> 添加商品</button>
       </div>
-      <input className={`${inputClass} mt-6 max-w-md`} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="按名称、slug 或 SKU 搜索" aria-label="搜索商品" />
+      <input className={`${inputClass} mt-6 max-w-md`} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="按名称或 SKU 搜索" aria-label="搜索商品" />
       {error ? <p role="alert" className="mt-4 rounded-lg bg-[#fff0ef] px-4 py-3 text-sm text-[#b42318]">{error}</p> : null}
 
       {products.length === 0 ? (
@@ -313,7 +308,7 @@ function ProductsPanel({ data, onChange }: { data: AdminData; onChange: (data: A
               <div className="min-w-0">
                 <h2 className="truncate font-bold text-[#252b30]">{product.translations["zh-Hans"]?.name || product.translations.vi?.name || product.slug}</h2>
                 <p className="mt-1 text-sm text-[#687078]">{categoryNames.get(product.categoryId)} · {formatCurrency(product.price, data.site.currencyCode, "zh-Hans")}</p>
-                <p className="mt-1 text-xs text-[#8a9299]">/{product.slug}{product.sku ? ` · SKU ${product.sku}` : ""}</p>
+                {product.sku ? <p className="mt-1 text-xs text-[#8a9299]">SKU {product.sku}</p> : null}
                 <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold">
                   <span className={`rounded-md px-2 py-1 ${product.active ? "bg-[#ecf8ef] text-[#26733d]" : "bg-[#f0f2f3] text-[#687078]"}`}>{product.active ? "正在显示" : "已隐藏"}</span>
                   {product.soldOut ? <span className="rounded-md bg-[#fff0ef] px-2 py-1 text-[#b42318]">已售罄</span> : null}
