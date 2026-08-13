@@ -29,6 +29,7 @@ export function PickupCheckoutDialog({
   const { language, t } = useLanguage();
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [discountCode, setDiscountCode] = useState("");
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -57,7 +58,7 @@ export function PickupCheckoutDialog({
           setIsSubmitting(true);
           setError("");
           try {
-            await onConfirm({ customerName, customerPhone, note });
+            await onConfirm({ customerName, customerPhone, note, discountCode });
           } catch {
             setError(t("orderFailed"));
           } finally {
@@ -105,6 +106,16 @@ export function PickupCheckoutDialog({
                   value={customerPhone}
                   onChange={(event) => setCustomerPhone(event.target.value)}
                   placeholder={t("enterPhone")}
+                  className="h-full min-w-0 flex-1 border-0 pl-[1vw] text-[#333] outline-none placeholder:text-[#999] md:pl-2"
+                />
+              </label>
+              <label className="flex h-[10vw] items-center border-b border-[#f9f9f9] md:h-12">
+                <span className="min-w-[20vw] whitespace-nowrap md:min-w-28">{t("discountCode")}</span>
+                <input
+                  type="text"
+                  value={discountCode}
+                  onChange={(event) => setDiscountCode(event.target.value)}
+                  placeholder={t("enterDiscountCode")}
                   className="h-full min-w-0 flex-1 border-0 pl-[1vw] text-[#333] outline-none placeholder:text-[#999] md:pl-2"
                 />
               </label>

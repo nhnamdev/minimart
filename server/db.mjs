@@ -63,6 +63,14 @@ async function ensureSiteMediaColumns() {
   );
 }
 
+async function ensureOrderDiscountCodeColumn() {
+  const [rows] = await pool.query("SHOW COLUMNS FROM orders");
+  const existing = new Set(rows.map((row) => row.Field));
+  if (!existing.has("discount_code")) {
+    await pool.query("ALTER TABLE orders ADD COLUMN discount_code VARCHAR(100) NULL");
+  }
+}
+
 async function ensureAdmin() {
   const [rows] = await pool.execute(
     "SELECT id FROM admin_users WHERE username = ? LIMIT 1",
@@ -174,6 +182,7 @@ async function seedCatalog() {
 export async function initializeDatabase() {
   await applySchema();
   await ensureSiteMediaColumns();
+  await ensureOrderDiscountCodeColumn();
   await ensureAdmin();
   await seedCatalog();
 }

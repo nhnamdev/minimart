@@ -168,6 +168,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `customer_phone` VARCHAR(30) NOT NULL,
   `delivery_address` TEXT NULL,
   `customer_note` VARCHAR(500) NULL,
+  `discount_code` VARCHAR(100) NULL,
   `currency_code` CHAR(3) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'VND',
   `subtotal` DECIMAL(15, 2) UNSIGNED NOT NULL,
   `total` DECIMAL(15, 2) UNSIGNED NOT NULL,

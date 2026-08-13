@@ -94,6 +94,7 @@ export interface AdminOrder {
   customerPhone: string;
   deliveryAddress: string | null;
   customerNote: string | null;
+  discountCode: string | null;
   currencyCode: string;
   subtotal: number;
   total: number;

@@ -50,6 +50,7 @@ export interface CheckoutDetails {
   customerPhone: string;
   deliveryAddress?: string;
   note?: string;
+  discountCode?: string;
 }
 
 export interface SavedOrderReference {

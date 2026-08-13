@@ -506,6 +506,7 @@ async function fetchAdminOrders(query) {
       customerPhone: order.customer_phone,
       deliveryAddress: order.delivery_address,
       customerNote: order.customer_note,
+      discountCode: order.discount_code,
       currencyCode: order.currency_code,
       subtotal: Number(order.subtotal),
       total: Number(order.total),
@@ -564,6 +565,7 @@ app.post("/api/orders", asyncRoute(async (request, response) => {
   const customerPhone = cleanText(request.body?.customerPhone, 30, true);
   const deliveryAddress = cleanText(request.body?.deliveryAddress, 1000);
   const customerNote = cleanText(request.body?.note, 500);
+  const discountCode = cleanText(request.body?.discountCode, 100);
   if (fulfillmentMode === "delivery" && !deliveryAddress) throw new Error("DELIVERY_ADDRESS_REQUIRED");
 
   const requestedItems = new Map();
@@ -603,10 +605,10 @@ app.post("/api/orders", asyncRoute(async (request, response) => {
     const [orderResult] = await connection.execute(
       `INSERT INTO orders
         (order_code, site_id, language_code, fulfillment_mode, customer_name,
-         customer_phone, delivery_address, customer_note, currency_code, subtotal, total)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         customer_phone, delivery_address, customer_note, discount_code, currency_code, subtotal, total)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [orderCode, rows[0].site_id, languageCode, fulfillmentMode, customerName,
-        customerPhone, deliveryAddress, customerNote, rows[0].currency_code, subtotal, subtotal],
+        customerPhone, deliveryAddress, customerNote, discountCode, rows[0].currency_code, subtotal, subtotal],
     );
 
     for (const product of rows) {
@@ -629,6 +631,7 @@ app.post("/api/orders", asyncRoute(async (request, response) => {
       customerPhone,
       deliveryAddress,
       customerNote,
+      discountCode,
       currencyCode: rows[0].currency_code,
       total: subtotal,
       items: rows.map((product) => {

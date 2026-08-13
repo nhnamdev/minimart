@@ -497,6 +497,7 @@ function OrderCard({
                   <p>{isDelivery ? order.deliveryAddress : "客户到店自取"}</p>
                 </div>
                 {order.customerNote ? <p className="rounded-md bg-[#fff8e7] px-3 py-2"><span className="font-semibold">备注：</span> {order.customerNote}</p> : null}
+                {order.discountCode ? <p className="rounded-md bg-[#eaf2ff] px-3 py-2 text-[#1d5ea8]"><span className="font-semibold">优惠码：</span> {order.discountCode}</p> : null}
                 <p className="text-xs text-[#7a8289]">下单语言：{order.languageCode}</p>
               </div>
             </section>
