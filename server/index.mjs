@@ -30,6 +30,14 @@ const storefrontCache = new Map();
 const storefrontCacheTtlMs = 30_000;
 let storefrontCacheVersion = 0;
 
+function roundOrderTotal(amount, currencyCode = "VND") {
+  if (amount <= 0) return 0;
+  if (currencyCode === "VND") {
+    return Math.ceil(amount / 1000) * 1000;
+  }
+  return Math.ceil(amount);
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 12 * 1024 * 1024, files: 5 },
@@ -636,12 +644,12 @@ app.post("/api/orders", asyncRoute(async (request, response) => {
         const discountPercent = Number(refRows[0].discount_percent);
         const commissionPercent = Number(refRows[0].commission_percent);
         referralDiscountAmount = Math.round(subtotal * (discountPercent / 100));
-        const finalTotal = Math.max(0, subtotal - referralDiscountAmount);
+        const finalTotal = roundOrderTotal(subtotal - referralDiscountAmount, rows[0].currency_code);
         referralCommission = Math.round(finalTotal * (commissionPercent / 100));
       }
     }
 
-    const finalTotal = Math.max(0, subtotal - referralDiscountAmount);
+    const finalTotal = roundOrderTotal(subtotal - referralDiscountAmount, rows[0].currency_code);
     const orderCode = `MM${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
     const [orderResult] = await connection.execute(
       `INSERT INTO orders

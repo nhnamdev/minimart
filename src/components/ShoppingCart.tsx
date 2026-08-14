@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Image from "next/image";
 
 import { DeliveryCheckoutDialog } from "@/components/DeliveryCheckoutDialog";
-import { formatCurrency } from "@/lib/currency";
+import { formatCurrency, roundOrderTotal } from "@/lib/currency";
 import { CartIcon, CloseIcon, MinusIcon, PlusIcon } from "@/components/icons";
 import { PickupCheckoutDialog } from "@/components/PickupCheckoutDialog";
 import { useLanguage } from "@/context/LanguageContext";
@@ -58,7 +58,7 @@ export function ShoppingCart({
   );
   const discountPercent = referralInfo?.discountPercent ?? 0;
   const referralDiscountAmount = discountPercent > 0 ? Math.round(rawSubtotal * (discountPercent / 100)) : 0;
-  const total = Math.max(0, rawSubtotal - referralDiscountAmount);
+  const total = roundOrderTotal(rawSubtotal - referralDiscountAmount, currencyCode);
   const hasItems = itemCount > 0;
 
   function handleClear() {

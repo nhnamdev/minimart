@@ -14,3 +14,12 @@ export function formatCurrency(value: number, currencyCode: string, language: La
     currencyDisplay: "narrowSymbol",
   }).format(value);
 }
+
+export function roundOrderTotal(amount: number, currencyCode: string = "VND"): number {
+  if (amount <= 0) return 0;
+  if (currencyCode === "VND") {
+    return Math.ceil(amount / 1000) * 1000;
+  }
+  return Math.ceil(amount);
+}
+

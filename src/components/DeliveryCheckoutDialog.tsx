@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { PhoneIcon } from "@/components/icons";
-import { formatCurrency } from "@/lib/currency";
+import { formatCurrency, roundOrderTotal } from "@/lib/currency";
 import { useLanguage } from "@/context/LanguageContext";
 import type { CartQuantities, CheckoutDetails, Product, ReferralInfo } from "@/types/catalog";
 
@@ -47,7 +47,7 @@ export function DeliveryCheckoutDialog({
   );
   const discountPercent = referralInfo?.discountPercent ?? 0;
   const referralDiscountAmount = discountPercent > 0 ? Math.round(subtotal * (discountPercent / 100)) : 0;
-  const total = Math.max(0, subtotal - referralDiscountAmount);
+  const total = roundOrderTotal(subtotal - referralDiscountAmount, currencyCode);
 
   return (
     <div className="fixed inset-0 z-[110] bg-black/60" role="presentation">
