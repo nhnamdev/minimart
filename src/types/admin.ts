@@ -94,7 +94,9 @@ export interface AdminOrder {
   customerPhone: string;
   deliveryAddress: string | null;
   customerNote: string | null;
-  discountCode: string | null;
+  referralCode: string | null;
+  referralDiscountAmount: number;
+  referralCommission: number;
   currencyCode: string;
   subtotal: number;
   total: number;
@@ -110,6 +112,37 @@ export interface AdminOrdersResponse {
   page: number;
   pageSize: number;
   totalPages: number;
+}
+
+export interface AdminReferralCode {
+  id: string;
+  code: string;
+  agentName: string;
+  phone: string;
+  discountPercent: number;
+  commissionPercent: number;
+  isActive: boolean;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+  totalOrders: number;
+  completedOrders: number;
+  completedRevenue: number;
+  completedCommission: number;
+}
+
+export interface AdminReferralsResponse {
+  referrals: AdminReferralCode[];
+}
+
+export interface AdminReferralDraft {
+  code: string;
+  agentName: string;
+  phone: string;
+  discountPercent: string;
+  commissionPercent: string;
+  isActive: boolean;
+  note: string;
 }
 
 export interface AdminData {

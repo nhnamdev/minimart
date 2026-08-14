@@ -31,11 +31,12 @@ export function buildOrderEmail(order) {
     `Điện thoại: ${order.customerPhone}`,
     order.deliveryAddress ? `Địa chỉ giao hàng: ${order.deliveryAddress}` : null,
     order.customerNote ? `Ghi chú: ${order.customerNote}` : null,
-    order.discountCode ? `Mã giảm giá: ${order.discountCode}` : null,
+    order.referralCode ? `Mã giới thiệu: ${order.referralCode}${order.referralDiscountAmount > 0 ? ` (Giảm ${formatMoney(order.referralDiscountAmount, order.currencyCode)})` : ""}` : null,
     "",
     "Sản phẩm:",
     ...itemLines,
     "",
+    order.referralDiscountAmount > 0 ? `Tạm tính: ${formatMoney(order.subtotal, order.currencyCode)}\nGiảm giá giới thiệu: -${formatMoney(order.referralDiscountAmount, order.currencyCode)}\n` : null,
     `Tổng cộng: ${formatMoney(order.total, order.currencyCode)}`,
   ].filter((line) => line !== null);
   const text = detailLines.join("\n");
@@ -55,8 +56,9 @@ export function buildOrderEmail(order) {
       <p><strong>Điện thoại:</strong> ${escapeHtml(order.customerPhone)}</p>
       ${order.deliveryAddress ? `<p><strong>Địa chỉ giao hàng:</strong> ${escapeHtml(order.deliveryAddress)}</p>` : ""}
       ${order.customerNote ? `<p><strong>Ghi chú:</strong> ${escapeHtml(order.customerNote)}</p>` : ""}
-      ${order.discountCode ? `<p><strong>Mã giảm giá:</strong> ${escapeHtml(order.discountCode)}</p>` : ""}
+      ${order.referralCode ? `<p><strong>Mã giới thiệu:</strong> ${escapeHtml(order.referralCode)}${order.referralDiscountAmount > 0 ? ` (Giảm ${escapeHtml(formatMoney(order.referralDiscountAmount, order.currencyCode))})` : ""}</p>` : ""}
       <table style="width:100%;border-collapse:collapse;margin-top:20px"><tbody>${itemRows}</tbody></table>
+      ${order.referralDiscountAmount > 0 ? `<p style="margin-top:16px;text-align:right;color:#6b7280">Tạm tính: ${escapeHtml(formatMoney(order.subtotal, order.currencyCode))}<br>Giảm giá giới thiệu: -${escapeHtml(formatMoney(order.referralDiscountAmount, order.currencyCode))}</p>` : ""}
       <p style="font-size:18px;text-align:right"><strong>Tổng cộng: ${escapeHtml(formatMoney(order.total, order.currencyCode))}</strong></p>
     </div>
   </div>

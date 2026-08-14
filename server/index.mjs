@@ -506,7 +506,9 @@ async function fetchAdminOrders(query) {
       customerPhone: order.customer_phone,
       deliveryAddress: order.delivery_address,
       customerNote: order.customer_note,
-      discountCode: order.discount_code,
+      referralCode: order.referral_code ?? null,
+      referralDiscountAmount: Number(order.referral_discount_amount || 0),
+      referralCommission: Number(order.referral_commission || 0),
       currencyCode: order.currency_code,
       subtotal: Number(order.subtotal),
       total: Number(order.total),
@@ -557,6 +559,24 @@ async function sendMedia(request, response) {
 app.get(/^\/api\/media\/(.+)$/, asyncRoute(sendMedia));
 app.head(/^\/api\/media\/(.+)$/, asyncRoute(sendMedia));
 
+app.get("/api/referrals/validate", asyncRoute(async (request, response) => {
+  const code = cleanText(request.query.code, 50);
+  if (!code) return response.json({ valid: false });
+  const [rows] = await pool.execute(
+    "SELECT code, agent_name, discount_percent, commission_percent, is_active FROM referral_codes WHERE code = ? LIMIT 1",
+    [code],
+  );
+  if (rows.length === 0 || !rows[0].is_active) {
+    return response.json({ valid: false });
+  }
+  return response.json({
+    valid: true,
+    code: rows[0].code,
+    agentName: rows[0].agent_name,
+    discountPercent: Number(rows[0].discount_percent),
+  });
+}));
+
 app.post("/api/orders", asyncRoute(async (request, response) => {
   const languageCode = validateLanguage(request.body?.language);
   const fulfillmentMode = request.body?.fulfillmentMode;
@@ -565,7 +585,7 @@ app.post("/api/orders", asyncRoute(async (request, response) => {
   const customerPhone = cleanText(request.body?.customerPhone, 30, true);
   const deliveryAddress = cleanText(request.body?.deliveryAddress, 1000);
   const customerNote = cleanText(request.body?.note, 500);
-  const discountCode = cleanText(request.body?.discountCode, 100);
+  const referralCode = cleanText(request.body?.referralCode, 50);
   if (fulfillmentMode === "delivery" && !deliveryAddress) throw new Error("DELIVERY_ADDRESS_REQUIRED");
 
   const requestedItems = new Map();
@@ -601,14 +621,37 @@ app.post("/api/orders", asyncRoute(async (request, response) => {
       (sum, product) => sum + Number(product.price) * requestedItems.get(Number(product.id)),
       0,
     );
+
+    let referralDiscountAmount = 0;
+    let referralCommission = 0;
+    let appliedReferralCode = null;
+
+    if (referralCode) {
+      const [refRows] = await connection.execute(
+        "SELECT code, discount_percent, commission_percent, is_active FROM referral_codes WHERE code = ? LIMIT 1",
+        [referralCode],
+      );
+      if (refRows.length > 0 && refRows[0].is_active) {
+        appliedReferralCode = refRows[0].code;
+        const discountPercent = Number(refRows[0].discount_percent);
+        const commissionPercent = Number(refRows[0].commission_percent);
+        referralDiscountAmount = Math.round(subtotal * (discountPercent / 100));
+        const finalTotal = Math.max(0, subtotal - referralDiscountAmount);
+        referralCommission = Math.round(finalTotal * (commissionPercent / 100));
+      }
+    }
+
+    const finalTotal = Math.max(0, subtotal - referralDiscountAmount);
     const orderCode = `MM${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
     const [orderResult] = await connection.execute(
       `INSERT INTO orders
         (order_code, site_id, language_code, fulfillment_mode, customer_name,
-         customer_phone, delivery_address, customer_note, discount_code, currency_code, subtotal, total)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         customer_phone, delivery_address, customer_note, referral_code,
+         referral_discount_amount, referral_commission, currency_code, subtotal, total)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [orderCode, rows[0].site_id, languageCode, fulfillmentMode, customerName,
-        customerPhone, deliveryAddress, customerNote, discountCode, rows[0].currency_code, subtotal, subtotal],
+        customerPhone, deliveryAddress, customerNote, appliedReferralCode,
+        referralDiscountAmount, referralCommission, rows[0].currency_code, subtotal, finalTotal],
     );
 
     for (const product of rows) {
@@ -631,9 +674,11 @@ app.post("/api/orders", asyncRoute(async (request, response) => {
       customerPhone,
       deliveryAddress,
       customerNote,
-      discountCode,
+      referralCode: appliedReferralCode,
+      referralDiscountAmount,
       currencyCode: rows[0].currency_code,
-      total: subtotal,
+      subtotal,
+      total: finalTotal,
       items: rows.map((product) => {
         const quantity = requestedItems.get(Number(product.id));
         return {
@@ -651,7 +696,7 @@ app.post("/api/orders", asyncRoute(async (request, response) => {
       console.error(JSON.stringify({ event: "order_email", logId: emailLogId, status: "failed", error: error instanceof Error ? error.message : "EMAIL_SEND_FAILED" }));
       return { status: "failed" };
     });
-    return response.status(201).json({ orderCode, total: subtotal, notificationStatus: notification.status });
+    return response.status(201).json({ orderCode, total: finalTotal, notificationStatus: notification.status });
   } catch (error) {
     if (!committed) await connection.rollback();
     throw error;
@@ -761,6 +806,117 @@ app.patch("/api/admin/orders/:id/status", requireAdmin, asyncRoute(async (reques
   if (orderRows.length === 0) return response.status(404).json({ error: "ORDER_NOT_FOUND" });
   await pool.execute("UPDATE orders SET status = ? WHERE id = ?", [status, orderId]);
   return response.json({ id: String(orderId), status });
+}));
+
+app.get("/api/admin/referrals", requireAdmin, asyncRoute(async (_request, response) => {
+  const [rows] = await pool.query(
+    `SELECT
+       rc.id,
+       rc.code,
+       rc.agent_name,
+       rc.phone,
+       rc.discount_percent,
+       rc.commission_percent,
+       rc.is_active,
+       rc.note,
+       rc.created_at,
+       rc.updated_at,
+       COUNT(o.id) AS total_orders,
+       SUM(CASE WHEN o.status = 'completed' THEN 1 ELSE 0 END) AS completed_orders,
+       COALESCE(SUM(CASE WHEN o.status = 'completed' THEN o.total ELSE 0 END), 0) AS completed_revenue,
+       COALESCE(SUM(CASE WHEN o.status = 'completed' THEN o.referral_commission ELSE 0 END), 0) AS completed_commission
+     FROM referral_codes rc
+     LEFT JOIN orders o ON o.referral_code = rc.code
+     GROUP BY rc.id
+     ORDER BY rc.created_at DESC`,
+  );
+  response.set("Cache-Control", "no-store");
+  return response.json({
+    referrals: rows.map((row) => ({
+      id: String(row.id),
+      code: row.code,
+      agentName: row.agent_name,
+      phone: row.phone ?? "",
+      discountPercent: Number(row.discount_percent),
+      commissionPercent: Number(row.commission_percent),
+      isActive: Boolean(row.is_active),
+      note: row.note ?? "",
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      totalOrders: Number(row.total_orders),
+      completedOrders: Number(row.completed_orders),
+      completedRevenue: Number(row.completed_revenue),
+      completedCommission: Number(row.completed_commission),
+    })),
+  });
+}));
+
+app.post("/api/admin/referrals", requireAdmin, asyncRoute(async (request, response) => {
+  const code = cleanText(request.body?.code, 50, true).toUpperCase();
+  if (!/^[A-Z0-9_-]+$/.test(code)) throw new Error("INVALID_REFERRAL_CODE");
+  const agentName = cleanText(request.body?.agentName, 255, true);
+  const phone = cleanText(request.body?.phone, 30);
+  const discountPercent = Number(request.body?.discountPercent);
+  if (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100) throw new Error("INVALID_DISCOUNT_PERCENT");
+  const commissionPercent = Number(request.body?.commissionPercent);
+  if (!Number.isFinite(commissionPercent) || commissionPercent < 0 || commissionPercent > 100) throw new Error("INVALID_COMMISSION_PERCENT");
+  const note = cleanText(request.body?.note, 1000);
+  const isActive = request.body?.isActive !== false;
+
+  await pool.execute(
+    `INSERT INTO referral_codes
+       (code, agent_name, phone, discount_percent, commission_percent, is_active, note)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [code, agentName, phone, discountPercent, commissionPercent, isActive, note],
+  );
+  return response.status(201).json({ success: true });
+}));
+
+app.put("/api/admin/referrals/:id", requireAdmin, asyncRoute(async (request, response) => {
+  const id = toPositiveId(request.params.id);
+  const code = cleanText(request.body?.code, 50, true).toUpperCase();
+  if (!/^[A-Z0-9_-]+$/.test(code)) throw new Error("INVALID_REFERRAL_CODE");
+  const agentName = cleanText(request.body?.agentName, 255, true);
+  const phone = cleanText(request.body?.phone, 30);
+  const discountPercent = Number(request.body?.discountPercent);
+  if (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100) throw new Error("INVALID_DISCOUNT_PERCENT");
+  const commissionPercent = Number(request.body?.commissionPercent);
+  if (!Number.isFinite(commissionPercent) || commissionPercent < 0 || commissionPercent > 100) throw new Error("INVALID_COMMISSION_PERCENT");
+  const note = cleanText(request.body?.note, 1000);
+  const isActive = request.body?.isActive !== false;
+
+  const [existing] = await pool.execute("SELECT id FROM referral_codes WHERE id = ? LIMIT 1", [id]);
+  if (existing.length === 0) return response.status(404).json({ error: "REFERRAL_NOT_FOUND" });
+
+  await pool.execute(
+    `UPDATE referral_codes
+        SET code = ?, agent_name = ?, phone = ?, discount_percent = ?,
+            commission_percent = ?, is_active = ?, note = ?
+      WHERE id = ?`,
+    [code, agentName, phone, discountPercent, commissionPercent, isActive, note, id],
+  );
+  return response.json({ success: true });
+}));
+
+app.patch("/api/admin/referrals/:id/toggle", requireAdmin, asyncRoute(async (request, response) => {
+  const id = toPositiveId(request.params.id);
+  const [rows] = await pool.execute("SELECT id, is_active FROM referral_codes WHERE id = ? LIMIT 1", [id]);
+  if (rows.length === 0) return response.status(404).json({ error: "REFERRAL_NOT_FOUND" });
+  const nextActive = !rows[0].is_active;
+  await pool.execute("UPDATE referral_codes SET is_active = ? WHERE id = ?", [nextActive, id]);
+  return response.json({ id: String(id), isActive: nextActive });
+}));
+
+app.delete("/api/admin/referrals/:id", requireAdmin, asyncRoute(async (request, response) => {
+  const id = toPositiveId(request.params.id);
+  const [rows] = await pool.execute("SELECT id, code FROM referral_codes WHERE id = ? LIMIT 1", [id]);
+  if (rows.length === 0) return response.status(404).json({ error: "REFERRAL_NOT_FOUND" });
+  const [orderCount] = await pool.execute("SELECT COUNT(*) as count FROM orders WHERE referral_code = ?", [rows[0].code]);
+  if (Number(orderCount[0].count) > 0) {
+    return response.status(409).json({ error: "REFERRAL_HAS_ORDERS" });
+  }
+  await pool.execute("DELETE FROM referral_codes WHERE id = ?", [id]);
+  return response.status(204).end();
 }));
 
 app.put(
@@ -1100,7 +1256,8 @@ app.use((error, _request, response, _next) => {
     "INVALID_ID", "INVALID_PRICE", "INVALID_SORT_ORDER", "INVALID_IMAGE_TYPE", "INVALID_FULFILLMENT",
     "INVALID_ORDER_STATUS", "INVALID_ORDER_CODE", "INVALID_CURRENCY_CODE", "INVALID_TIMEZONE",
     "INVALID_QUANTITY", "EMPTY_ORDER", "DELIVERY_ADDRESS_REQUIRED", "CATEGORY_NOT_FOUND",
-    "PRODUCT_UNAVAILABLE",
+    "PRODUCT_UNAVAILABLE", "INVALID_REFERRAL_CODE", "INVALID_DISCOUNT_PERCENT",
+    "INVALID_COMMISSION_PERCENT", "REFERRAL_NOT_FOUND", "REFERRAL_HAS_ORDERS",
   ]);
   if (clientErrors.has(error.message)) return response.status(400).json({ error: error.message });
   if (error.code === "ER_DUP_ENTRY") return response.status(409).json({ error: "DUPLICATE_VALUE" });

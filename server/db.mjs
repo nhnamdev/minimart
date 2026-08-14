@@ -71,6 +71,38 @@ async function ensureOrderDiscountCodeColumn() {
   }
 }
 
+async function ensureReferralTablesAndColumns() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS referral_codes (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      code VARCHAR(50) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+      agent_name VARCHAR(255) NOT NULL,
+      phone VARCHAR(30) NULL,
+      discount_percent DECIMAL(5, 2) UNSIGNED NOT NULL DEFAULT 5.00,
+      commission_percent DECIMAL(5, 2) UNSIGNED NOT NULL DEFAULT 5.00,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      note TEXT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY uq_referral_codes_code (code),
+      KEY idx_referral_codes_active (is_active)
+    ) ENGINE = InnoDB
+  `);
+
+  const [orderColumns] = await pool.query("SHOW COLUMNS FROM orders");
+  const existingCols = new Set(orderColumns.map((row) => row.Field));
+  if (!existingCols.has("referral_code")) {
+    await pool.query("ALTER TABLE orders ADD COLUMN referral_code VARCHAR(50) CHARACTER SET ascii COLLATE ascii_bin NULL, ADD KEY idx_orders_referral_code (referral_code)");
+  }
+  if (!existingCols.has("referral_discount_amount")) {
+    await pool.query("ALTER TABLE orders ADD COLUMN referral_discount_amount DECIMAL(15, 2) UNSIGNED NOT NULL DEFAULT 0.00");
+  }
+  if (!existingCols.has("referral_commission")) {
+    await pool.query("ALTER TABLE orders ADD COLUMN referral_commission DECIMAL(15, 2) UNSIGNED NOT NULL DEFAULT 0.00");
+  }
+}
+
 async function ensureAdmin() {
   const [rows] = await pool.execute(
     "SELECT id FROM admin_users WHERE username = ? LIMIT 1",
@@ -183,6 +215,7 @@ export async function initializeDatabase() {
   await applySchema();
   await ensureSiteMediaColumns();
   await ensureOrderDiscountCodeColumn();
+  await ensureReferralTablesAndColumns();
   await ensureAdmin();
   await seedCatalog();
 }

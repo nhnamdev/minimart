@@ -2,8 +2,10 @@
 
 import Image from "next/image";
 import {
+  Check,
   ChevronDown,
   ClipboardList,
+  Copy,
   ImagePlus,
   Layers3,
   LogOut,
@@ -16,6 +18,7 @@ import {
   Store,
   Trash2,
   Truck,
+  Users,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -29,6 +32,8 @@ import type {
   AdminOrderEmailLog,
   AdminOrdersResponse,
   AdminProduct,
+  AdminReferralCode,
+  AdminReferralsResponse,
   AdminTranslations,
   FulfillmentMode,
   OrderStatus,
@@ -497,7 +502,15 @@ function OrderCard({
                   <p>{isDelivery ? order.deliveryAddress : "客户到店自取"}</p>
                 </div>
                 {order.customerNote ? <p className="rounded-md bg-[#fff8e7] px-3 py-2"><span className="font-semibold">备注：</span> {order.customerNote}</p> : null}
-                {order.discountCode ? <p className="rounded-md bg-[#eaf2ff] px-3 py-2 text-[#1d5ea8]"><span className="font-semibold">优惠码：</span> {order.discountCode}</p> : null}
+                {order.referralCode ? (
+                  <div className="rounded-md bg-[#eef7ee] p-2.5 text-xs text-[#206332]">
+                    <p className="font-bold">🏷️ 推荐码：{order.referralCode}</p>
+                    <p className="mt-0.5">
+                      优惠：{formatMoney(order.referralDiscountAmount, order.currencyCode)} | 佣金：{formatMoney(order.referralCommission, order.currencyCode)}
+                      {order.status === "completed" ? " (已结算)" : " (待订单完成)"}
+                    </p>
+                  </div>
+                ) : null}
                 <p className="text-xs text-[#7a8289]">下单语言：{order.languageCode}</p>
               </div>
             </section>
@@ -515,9 +528,23 @@ function OrderCard({
                   </div>
                 ))}
               </div>
-              <div className="mt-4 flex items-center justify-between border-t border-[#dfe3e6] pt-4">
-                <span className="font-bold text-[#30363b]">合计</span>
-                <strong className="text-lg text-[#20252b]">{formatMoney(order.total, order.currencyCode)}</strong>
+              <div className="mt-4 border-t border-[#dfe3e6] pt-4">
+                {order.referralDiscountAmount > 0 ? (
+                  <div className="mb-2 space-y-1 text-xs text-[#687078]">
+                    <div className="flex justify-between">
+                      <span>商品小计</span>
+                      <span>{formatMoney(order.subtotal, order.currencyCode)}</span>
+                    </div>
+                    <div className="flex justify-between text-[#d9382e]">
+                      <span>推荐码优惠 ({order.referralCode})</span>
+                      <span>-{formatMoney(order.referralDiscountAmount, order.currencyCode)}</span>
+                    </div>
+                  </div>
+                ) : null}
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-[#30363b]">合计</span>
+                  <strong className="text-lg text-[#20252b]">{formatMoney(order.total, order.currencyCode)}</strong>
+                </div>
               </div>
             </section>
           </div>
@@ -892,11 +919,444 @@ function CategoryForm({
   );
 }
 
+function ReferralModal({
+  referral,
+  onClose,
+  onSaved,
+}: {
+  referral: AdminReferralCode | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [code, setCode] = useState(referral?.code ?? "");
+  const [agentName, setAgentName] = useState(referral?.agentName ?? "");
+  const [phone, setPhone] = useState(referral?.phone ?? "");
+  const [discountPercent, setDiscountPercent] = useState(referral ? String(referral.discountPercent) : "5");
+  const [commissionPercent, setCommissionPercent] = useState(referral ? String(referral.commissionPercent) : "5");
+  const [note, setNote] = useState(referral?.note ?? "");
+  const [isActive, setIsActive] = useState(referral?.isActive ?? true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    setIsSaving(true);
+    setError("");
+    try {
+      await jsonRequest(
+        referral ? `/api/admin/referrals/${referral.id}` : "/api/admin/referrals",
+        {
+          method: referral ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            code: code.trim().toUpperCase(),
+            agentName: agentName.trim(),
+            phone: phone.trim(),
+            discountPercent: Number(discountPercent),
+            commissionPercent: Number(commissionPercent),
+            note: note.trim(),
+            isActive,
+          }),
+        },
+      );
+      onSaved();
+    } catch (requestError) {
+      const msg = requestError instanceof Error ? requestError.message : "REQUEST_FAILED";
+      if (msg === "DUPLICATE_VALUE") setError("该推荐码已存在。");
+      else if (msg === "INVALID_REFERRAL_CODE") setError("推荐码格式不正确（仅限字母、数字、下划线或连字符）。");
+      else setError("保存推荐码失败，请检查后重试。");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[120] grid place-items-center overflow-y-auto bg-black/60 p-4" role="presentation">
+      <section
+        role="dialog"
+        aria-modal="true"
+        className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-[#e5e8ea] pb-4">
+          <h2 className="text-lg font-bold text-[#20252b]">
+            {referral ? "编辑推荐码" : "添加新推荐码"}
+          </h2>
+          <button type="button" onClick={onClose} className="rounded-lg p-1 text-[#687078] hover:bg-[#f0f2f4]">
+            <X className="size-5" />
+          </button>
+        </div>
+
+        <form onSubmit={save} className="mt-5 grid gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className={labelClass}>
+              推荐码 *
+              <input
+                className={`${inputClass} font-mono uppercase tracking-wider`}
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                placeholder="例: MZ001, HDV01"
+                required
+                maxLength={50}
+              />
+            </label>
+            <label className={labelClass}>
+              代理人 / 导游姓名 *
+              <input
+                className={inputClass}
+                value={agentName}
+                onChange={(e) => setAgentName(e.target.value)}
+                placeholder="例: 代理小李, 导游小张"
+                required
+              />
+            </label>
+          </div>
+
+          <label className={labelClass}>
+            代理人联系电话
+            <input
+              className={inputClass}
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="例: 0901234567"
+            />
+          </label>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className={labelClass}>
+                顾客折扣比例 (%) *
+                <input
+                  className={inputClass}
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  value={discountPercent}
+                  onChange={(e) => setDiscountPercent(e.target.value)}
+                  required
+                />
+              </label>
+              <div className="mt-1.5 flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setDiscountPercent("5")}
+                  className={`rounded px-2 py-0.5 text-xs font-semibold ${discountPercent === "5" ? "bg-[#fdbc24] text-[#20252b]" : "bg-[#f0f2f4] text-[#555]"}`}
+                >
+                  5% (导游)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDiscountPercent("10")}
+                  className={`rounded px-2 py-0.5 text-xs font-semibold ${discountPercent === "10" ? "bg-[#fdbc24] text-[#20252b]" : "bg-[#f0f2f4] text-[#555]"}`}
+                >
+                  10% (专属)
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className={labelClass}>
+                代理佣金比例 (%) *
+                <input
+                  className={inputClass}
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  value={commissionPercent}
+                  onChange={(e) => setCommissionPercent(e.target.value)}
+                  required
+                />
+              </label>
+              <p className="mt-1.5 text-xs text-[#707880]">按折后实付金额计算</p>
+            </div>
+          </div>
+
+          <label className={labelClass}>
+            备注
+            <textarea
+              className={`${inputClass} min-h-16 resize-y`}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="填写关于该代理的备注信息..."
+            />
+          </label>
+
+          <label className="flex items-center gap-3 text-sm font-semibold text-[#343a40]">
+            <input
+              type="checkbox"
+              checked={isActive}
+              onChange={(e) => setIsActive(e.target.checked)}
+              className="size-4 accent-[#d79a00]"
+            />
+            启用此推荐码
+          </label>
+
+          {error ? <p role="alert" className="rounded-lg bg-[#fff0ef] px-3 py-2 text-sm text-[#b42318]">{error}</p> : null}
+
+          <div className="mt-2 flex justify-end gap-3 border-t border-[#e5e8ea] pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-[#cfd4d8] px-4 py-2.5 text-sm font-semibold text-[#505960]"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="flex items-center gap-2 rounded-lg bg-[#fdbc24] px-5 py-2.5 text-sm font-bold text-[#20252b] hover:bg-[#efae14] disabled:opacity-60"
+            >
+              <Save className="size-4" />
+              {isSaving ? "正在保存..." : "保存推荐码"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function ReferralsPanel() {
+  const [data, setData] = useState<AdminReferralsResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [modalReferral, setModalReferral] = useState<AdminReferralCode | null | "new">(null);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [toggleLoadingId, setToggleLoadingId] = useState<string | null>(null);
+
+  const loadReferrals = useCallback(async () => {
+    setIsLoading(true);
+    setError("");
+    try {
+      const res = await jsonRequest<AdminReferralsResponse>("/api/admin/referrals");
+      setData(res);
+    } catch {
+      setError("无法加载推荐码列表。");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadReferrals();
+  }, [loadReferrals]);
+
+  function copyLink(code: string) {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const link = `${origin}/?ref=${code}`;
+    void navigator.clipboard.writeText(link);
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(null), 2000);
+  }
+
+  async function toggleStatus(referral: AdminReferralCode) {
+    setToggleLoadingId(referral.id);
+    try {
+      await jsonRequest(`/api/admin/referrals/${referral.id}/toggle`, { method: "PATCH" });
+      await loadReferrals();
+    } catch {
+      setError("无法更改推荐码状态。");
+    } finally {
+      setToggleLoadingId(null);
+    }
+  }
+
+  async function deleteReferral(referral: AdminReferralCode) {
+    if (!window.confirm(`确定要删除推荐码 ${referral.code} 吗？`)) return;
+    try {
+      await jsonRequest(`/api/admin/referrals/${referral.id}`, { method: "DELETE" });
+      await loadReferrals();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      if (msg === "REFERRAL_HAS_ORDERS") {
+        alert("该推荐码已有关联订单，无法直接删除。您可以将其设置为“暂停”。");
+      } else {
+        alert("无法删除该推荐码。");
+      }
+    }
+  }
+
+  const referrals = data?.referrals ?? [];
+  const totalAgents = referrals.length;
+  const activeAgents = referrals.filter((r) => r.isActive).length;
+  const totalCompletedOrders = referrals.reduce((sum, r) => sum + r.completedOrders, 0);
+  const totalCompletedCommission = referrals.reduce((sum, r) => sum + r.completedCommission, 0);
+  const totalCompletedRevenue = referrals.reduce((sum, r) => sum + r.completedRevenue, 0);
+
+  return (
+    <section className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-[#20252b]">分销推荐码管理</h1>
+          <p className="mt-1 text-sm text-[#687078]">创建和管理代理推荐码、推广链接、订单统计及分销佣金。</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => void loadReferrals()}
+            className="flex items-center gap-2 rounded-lg border border-[#cfd4d8] bg-white px-3.5 py-2.5 text-sm font-bold text-[#3e464d] hover:bg-[#f7f8f9]"
+          >
+            <RefreshCw className={`size-4 ${isLoading ? "animate-spin" : ""}`} /> 刷新
+          </button>
+          <button
+            type="button"
+            onClick={() => setModalReferral("new")}
+            className="flex items-center gap-2 rounded-lg bg-[#fdbc24] px-4 py-2.5 text-sm font-bold text-[#20252b] hover:bg-[#efae14] shadow-sm"
+          >
+            <Plus className="size-4" /> 添加推荐码
+          </button>
+        </div>
+      </div>
+
+      {/* KPI Overview Cards */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="rounded-xl border border-[#dfe3e6] bg-white p-4">
+          <p className="text-xs font-semibold text-[#687078]">总代理数 / 推荐码</p>
+          <p className="mt-2 text-2xl font-bold text-[#20252b]">{totalAgents}</p>
+          <p className="mt-1 text-xs text-[#26733d] font-medium">{activeAgents} 个正在使用</p>
+        </div>
+        <div className="rounded-xl border border-[#dfe3e6] bg-white p-4">
+          <p className="text-xs font-semibold text-[#687078]">已完成订单数</p>
+          <p className="mt-2 text-2xl font-bold text-[#20252b]">{totalCompletedOrders}</p>
+          <p className="mt-1 text-xs text-[#687078]">来自推荐链接</p>
+        </div>
+        <div className="rounded-xl border border-[#dfe3e6] bg-white p-4">
+          <p className="text-xs font-semibold text-[#687078]">已结算营业额</p>
+          <p className="mt-2 text-2xl font-bold text-[#20252b]">{formatCurrency(totalCompletedRevenue, "VND", "zh-Hans")}</p>
+          <p className="mt-1 text-xs text-[#687078]">已完成付款</p>
+        </div>
+        <div className="rounded-xl border border-[#e9dbc2] bg-[#fffbf2] p-4">
+          <p className="text-xs font-semibold text-[#9b6a00]">已结算总佣金</p>
+          <p className="mt-2 text-2xl font-bold text-[#b42318]">{formatCurrency(totalCompletedCommission, "VND", "zh-Hans")}</p>
+          <p className="mt-1 text-xs text-[#8f6200]">仅统计已完成订单</p>
+        </div>
+      </div>
+
+      {error ? <p role="alert" className="rounded-lg bg-[#fff0ef] px-4 py-3 text-sm text-[#b42318]">{error}</p> : null}
+
+      {/* Referral list */}
+      <div className="rounded-xl border border-[#dfe3e6] bg-white overflow-hidden shadow-sm">
+        <div className="border-b border-[#e5e8ea] bg-[#fafbfc] px-5 py-4">
+          <h2 className="text-base font-bold text-[#20252b]">推荐码列表 ({referrals.length})</h2>
+        </div>
+
+        {isLoading && !data ? (
+          <div className="p-6 text-center text-sm text-[#687078]">正在加载列表...</div>
+        ) : referrals.length === 0 ? (
+          <div className="px-6 py-14 text-center">
+            <Users className="mx-auto size-10 text-[#a0a8af]" />
+            <p className="mt-3 font-semibold text-[#485056]">暂无推荐码数据。</p>
+            <p className="mt-1 text-sm text-[#7a8289]">点击“添加推荐码”创建第一个分销链接。</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-[#eceff1] overflow-x-auto">
+            {referrals.map((referral) => {
+              const isCopied = copiedCode === referral.code;
+              return (
+                <div key={referral.id} className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between hover:bg-[#fafbfc] transition">
+                  <div className="min-w-0 space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-base font-bold text-[#20252b] bg-[#f0f2f4] px-2.5 py-0.5 rounded">
+                        {referral.code}
+                      </span>
+                      <span className="text-sm font-semibold text-[#343a40]">{referral.agentName}</span>
+                      {referral.phone ? <span className="text-xs text-[#707880]">({referral.phone})</span> : null}
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold ${referral.isActive ? "bg-[#eaf8ec] text-[#26733d]" : "bg-[#f3f4f6] text-[#707880]"}`}>
+                        {referral.isActive ? "启用中" : "已暂停"}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-[#525a60]">
+                      <span>顾客优惠: <strong className="text-[#d9382e]">{referral.discountPercent}%</strong></span>
+                      <span>•</span>
+                      <span>代理佣金: <strong className="text-[#26733d]">{referral.commissionPercent}%</strong></span>
+                      <span>•</span>
+                      <span>完成订单: <strong>{referral.completedOrders}</strong> / {referral.totalOrders} 单</span>
+                      <span>•</span>
+                      <span>完成业绩: <strong>{formatCurrency(referral.completedRevenue, "VND", "zh-Hans")}</strong></span>
+                      <span>•</span>
+                      <span>累计佣金: <strong className="text-[#b42318]">{formatCurrency(referral.completedCommission, "VND", "zh-Hans")}</strong></span>
+                    </div>
+
+                    {referral.note ? (
+                      <p className="text-xs text-[#808890] italic">备注: {referral.note}</p>
+                    ) : null}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => copyLink(referral.code)}
+                      className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold transition ${
+                        isCopied
+                          ? "border-[#26733d] bg-[#eaf8ec] text-[#26733d]"
+                          : "border-[#cfd4d8] bg-white text-[#3e464d] hover:bg-[#f7f8f9]"
+                      }`}
+                    >
+                      {isCopied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                      {isCopied ? "已复制链接" : "复制链接"}
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={toggleLoadingId === referral.id}
+                      onClick={() => void toggleStatus(referral)}
+                      className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                        referral.isActive
+                          ? "border-[#e0c070] bg-[#fffcf2] text-[#9b6a00] hover:bg-[#fff6dc]"
+                          : "border-[#b8e0c0] bg-[#f0faf2] text-[#26733d] hover:bg-[#e4f6e8]"
+                      }`}
+                    >
+                      {referral.isActive ? "暂停" : "启用"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setModalReferral(referral)}
+                      className="rounded-lg border border-[#cfd4d8] bg-white p-2 text-[#525a60] hover:bg-[#f7f8f9] hover:text-[#20252b]"
+                      aria-label="编辑"
+                    >
+                      <Pencil className="size-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => void deleteReferral(referral)}
+                      className="rounded-lg border border-[#f0c2be] bg-white p-2 text-[#b42318] hover:bg-[#fff0ef]"
+                      aria-label="删除"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {modalReferral ? (
+        <ReferralModal
+          referral={modalReferral === "new" ? null : modalReferral}
+          onClose={() => setModalReferral(null)}
+          onSaved={() => {
+            setModalReferral(null);
+            void loadReferrals();
+          }}
+        />
+      ) : null}
+    </section>
+  );
+}
+
 export function AdminApp() {
   const [session, setSession] = useState<"checking" | "guest" | "authenticated">("checking");
   const [data, setData] = useState<AdminData | null>(null);
   const [branding, setBranding] = useState<SiteContent | null>(null);
-  const [active, setActive] = useState<"products" | "categories" | "orders" | "content">("products");
+  const [active, setActive] = useState<"products" | "categories" | "orders" | "referrals" | "content">("products");
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -945,7 +1405,7 @@ export function AdminApp() {
       <header className="sticky top-0 z-30 border-b border-black/10 bg-[#141d27] text-white">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6">
           {siteLogoUrl ? <Image src={siteLogoUrl} alt={siteName} width={42} height={42} className="size-10 rounded-lg object-cover" /> : <div className="grid size-10 place-items-center rounded-lg bg-white/10"><Store className="size-5" /></div>}
-          <div className="min-w-0 flex-1"><p className="truncate font-bold">{siteName}管理后台</p><p className="text-xs text-white/60">网上商店</p></div>
+          <div className="min-w-0 flex-1"><p className="truncate font-bold">{siteName}管理后台</p><p className="text-xs text-white/60">在线商城后台管理</p></div>
           <button onClick={() => void logout()} className="flex items-center gap-2 rounded-lg border border-white/20 px-3 py-2 text-sm font-semibold hover:bg-white/10"><LogOut className="size-4" /><span className="hidden sm:inline">退出登录</span></button>
         </div>
       </header>
@@ -954,6 +1414,7 @@ export function AdminApp() {
           <button onClick={() => setActive("products")} className={`flex shrink-0 items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-bold ${active === "products" ? "bg-[#fdbc24] text-[#20252b]" : "bg-white text-[#4c555c] hover:bg-[#f8f9fa]"}`}><Package className="size-4" /> 商品</button>
           <button onClick={() => setActive("categories")} className={`flex shrink-0 items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-bold ${active === "categories" ? "bg-[#fdbc24] text-[#20252b]" : "bg-white text-[#4c555c] hover:bg-[#f8f9fa]"}`}><Layers3 className="size-4" /> 分类</button>
           <button onClick={() => setActive("orders")} className={`flex shrink-0 items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-bold ${active === "orders" ? "bg-[#fdbc24] text-[#20252b]" : "bg-white text-[#4c555c] hover:bg-[#f8f9fa]"}`}><ClipboardList className="size-4" /> 订单</button>
+          <button onClick={() => setActive("referrals")} className={`flex shrink-0 items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-bold ${active === "referrals" ? "bg-[#fdbc24] text-[#20252b]" : "bg-white text-[#4c555c] hover:bg-[#f8f9fa]"}`}><Users className="size-4" /> 分销推荐</button>
           <button onClick={() => setActive("content")} className={`flex shrink-0 items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-bold ${active === "content" ? "bg-[#fdbc24] text-[#20252b]" : "bg-white text-[#4c555c] hover:bg-[#f8f9fa]"}`}><Store className="size-4" /> 网站内容</button>
         </nav>
         <div className="min-w-0">
@@ -962,6 +1423,7 @@ export function AdminApp() {
           {data && active === "products" ? <ProductsPanel data={data} onChange={setData} /> : null}
           {data && active === "categories" ? <CategoriesPanel data={data} onChange={setData} /> : null}
           {data && active === "orders" ? <OrdersPanel timezone={data.site.timezone} /> : null}
+          {data && active === "referrals" ? <ReferralsPanel /> : null}
           {data && active === "content" ? <ContentPanel data={data} onChange={setData} /> : null}
         </div>
       </div>

@@ -8,7 +8,7 @@ import { formatCurrency } from "@/lib/currency";
 import { CartIcon, CloseIcon, MinusIcon, PlusIcon } from "@/components/icons";
 import { PickupCheckoutDialog } from "@/components/PickupCheckoutDialog";
 import { useLanguage } from "@/context/LanguageContext";
-import type { CartQuantities, CheckoutDetails, Product, SavedOrderReference } from "@/types/catalog";
+import type { CartQuantities, CheckoutDetails, Product, ReferralInfo, SavedOrderReference } from "@/types/catalog";
 
 interface ShoppingCartProps {
   fulfillmentMode: "delivery" | "pickup";
@@ -17,6 +17,7 @@ interface ShoppingCartProps {
   currencyCode: string;
   products: Product[];
   quantities: CartQuantities;
+  referralInfo?: ReferralInfo | null;
   onQuantityChange: (productId: string, next: number) => void;
   onClear: () => void;
   onOrderPlaced: (reference: SavedOrderReference) => void;
@@ -30,6 +31,7 @@ export function ShoppingCart({
   currencyCode,
   products,
   quantities,
+  referralInfo = null,
   onQuantityChange,
   onClear,
   onOrderPlaced,
@@ -50,10 +52,13 @@ export function ShoppingCart({
     (sum, product) => sum + (quantities[product.id] ?? 0),
     0,
   );
-  const total = selectedProducts.reduce(
+  const rawSubtotal = selectedProducts.reduce(
     (sum, product) => sum + product.price * (quantities[product.id] ?? 0),
     0,
   );
+  const discountPercent = referralInfo?.discountPercent ?? 0;
+  const referralDiscountAmount = discountPercent > 0 ? Math.round(rawSubtotal * (discountPercent / 100)) : 0;
+  const total = Math.max(0, rawSubtotal - referralDiscountAmount);
   const hasItems = itemCount > 0;
 
   function handleClear() {
@@ -80,6 +85,7 @@ export function ShoppingCart({
       body: JSON.stringify({
         language,
         fulfillmentMode,
+        referralCode: referralInfo?.code,
         ...details,
         items: selectedProducts.map((product) => ({
           productId: product.id,
@@ -102,6 +108,7 @@ export function ShoppingCart({
         <DeliveryCheckoutDialog
           products={products}
           quantities={quantities}
+          referralInfo={referralInfo}
           storePhone={storePhone}
           currencyCode={currencyCode}
           onCancel={() => setIsDeliveryCheckoutOpen(false)}
@@ -113,6 +120,7 @@ export function ShoppingCart({
         <PickupCheckoutDialog
           products={products}
           quantities={quantities}
+          referralInfo={referralInfo}
           storeAddress={storeAddress}
           storePhone={storePhone}
           currencyCode={currencyCode}
@@ -138,13 +146,12 @@ export function ShoppingCart({
 
       <section
         aria-hidden={!isOpen}
-        className={`absolute right-0 bottom-12 left-0 z-[98] max-h-[min(62vh,420px)] overflow-y-auto border-t border-black/10 bg-white shadow-[0_-8px_24px_rgba(0,0,0,0.16)] transition-[opacity,transform,visibility] duration-200 ease-out ${
-          isOpen
+        className={`absolute right-0 bottom-12 left-0 z-[98] max-h-[min(68vh,460px)] overflow-y-auto border-t border-black/10 bg-white shadow-[0_-8px_24px_rgba(0,0,0,0.16)] transition-[opacity,transform,visibility] duration-200 ease-out ${isOpen
             ? "visible translate-y-0 opacity-100"
             : "invisible translate-y-3 opacity-0 pointer-events-none"
-        }`}
+          }`}
       >
-        <div className="sticky top-0 flex h-12 items-center justify-between border-b border-[#eceff1] bg-white px-4">
+        <div className="sticky top-0 z-10 flex h-12 items-center justify-between border-b border-[#eceff1] bg-white px-4">
           <h2 className="text-[16px] font-bold text-[#232323]">{t("cart")}</h2>
           <div className="flex items-center gap-3">
             {hasItems && (
@@ -168,52 +175,77 @@ export function ShoppingCart({
         </div>
 
         {hasItems ? (
-          <div className="divide-y divide-[#eceff1] px-4">
-            {selectedProducts.map((product) => {
-              const quantity = quantities[product.id] ?? 0;
+          <>
+            <div className="divide-y divide-[#eceff1] px-4">
+              {selectedProducts.map((product) => {
+                const quantity = quantities[product.id] ?? 0;
 
-              return (
-                <div key={product.id} className="flex min-h-16 items-center gap-3 py-2.5">
-                  <Image
-                    src={product.image}
-                    alt=""
-                    width={44}
-                    height={44}
-                    className="size-11 shrink-0 rounded object-cover"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-medium text-[#25292d]">
-                      {product.name}
-                    </p>
-                    <p className="mt-0.5 text-[12px] font-semibold text-[#f05045]">
-                      {formatCurrency(product.price, currencyCode, language)}
-                    </p>
+                return (
+                  <div key={product.id} className="flex min-h-16 items-center gap-3 py-2.5">
+                    <Image
+                      src={product.image}
+                      alt=""
+                      width={44}
+                      height={44}
+                      className="size-11 shrink-0 rounded object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-medium text-[#25292d]">
+                        {product.name}
+                      </p>
+                      <p className="mt-0.5 text-[12px] font-semibold text-[#f05045]">
+                        {formatCurrency(
+                          discountPercent > 0
+                            ? Math.round(product.price * (1 - discountPercent / 100))
+                            : product.price,
+                          currencyCode,
+                          language,
+                        )}
+                        {discountPercent > 0 ? (
+                          <span className="ml-1 text-[11px] font-normal text-[#969b9f] line-through">
+                            {formatCurrency(product.price, currencyCode, language)}
+                          </span>
+                        ) : null}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        aria-label={`${t("decrease")} ${product.name}`}
+                        className="grid size-7 place-items-center text-[#777d82]"
+                        onClick={() => onQuantityChange(product.id, Math.max(0, quantity - 1))}
+                      >
+                        <MinusIcon className="size-6" />
+                      </button>
+                      <span className="min-w-5 text-center text-[13px] font-semibold text-[#25292d]">
+                        {quantity}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`${t("increase")} ${product.name}`}
+                        className="grid size-7 place-items-center text-[#f4ad00]"
+                        onClick={() => onQuantityChange(product.id, quantity + 1)}
+                      >
+                        <PlusIcon className="size-6" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      aria-label={`${t("decrease")} ${product.name}`}
-                      className="grid size-7 place-items-center text-[#777d82]"
-                      onClick={() => onQuantityChange(product.id, Math.max(0, quantity - 1))}
-                    >
-                      <MinusIcon className="size-6" />
-                    </button>
-                    <span className="min-w-5 text-center text-[13px] font-semibold text-[#25292d]">
-                      {quantity}
-                    </span>
-                    <button
-                      type="button"
-                      aria-label={`${t("increase")} ${product.name}`}
-                      className="grid size-7 place-items-center text-[#f4ad00]"
-                      onClick={() => onQuantityChange(product.id, quantity + 1)}
-                    >
-                      <PlusIcon className="size-6" />
-                    </button>
-                  </div>
+                );
+              })}
+            </div>
+            {referralDiscountAmount > 0 ? (
+              <div className="border-t border-[#edf0f2] bg-[#fafafa] px-4 py-3 text-xs text-[#525a60]">
+                <div className="flex justify-between py-0.5">
+                  <span>{t("subtotal")}</span>
+                  <span className="font-semibold text-[#25292d]">{formatCurrency(rawSubtotal, currencyCode, language)}</span>
                 </div>
-              );
-            })}
-          </div>
+                <div className="flex justify-between py-0.5 text-[#d9382e]">
+                  <span>{t("referralDiscount")} ({referralInfo?.code} -{discountPercent}%)</span>
+                  <span className="font-semibold">-{formatCurrency(referralDiscountAmount, currencyCode, language)}</span>
+                </div>
+              </div>
+            ) : null}
+          </>
         ) : (
           <p className="px-4 py-8 text-center text-[13px] text-[#969b9f]">
             {t("emptyCart")}
@@ -234,9 +266,8 @@ export function ShoppingCart({
         >
           <span className="relative top-[-10px] mx-3 box-border grid size-14 shrink-0 place-items-center rounded-full bg-[#141d27] p-1.5">
             <span
-              className={`grid size-full place-items-center rounded-full ${
-                hasItems ? "bg-[#fdbc24] text-white" : "bg-[#2b343c] text-[#80858a]"
-              }`}
+              className={`grid size-full place-items-center rounded-full ${hasItems ? "bg-[#fdbc24] text-white" : "bg-[#2b343c] text-[#80858a]"
+                }`}
             >
               <CartIcon className="size-7" />
             </span>
@@ -246,23 +277,35 @@ export function ShoppingCart({
               </span>
             )}
           </span>
-          <span
-            className={`mt-3 truncate pr-3 text-[16px] leading-6 font-bold ${
-              hasItems ? "text-white" : "text-white/45"
-            }`}
-          >
-            {formatCurrency(total, currencyCode, language)}
-          </span>
+          <div className="mt-2 min-w-0 flex-1 pr-2">
+            <div className="flex items-baseline gap-1.5">
+              <span
+                className={`truncate text-[16px] leading-5 font-bold ${hasItems ? "text-white" : "text-white/45"
+                  }`}
+              >
+                {formatCurrency(total, currencyCode, language)}
+              </span>
+              {hasItems && referralDiscountAmount > 0 ? (
+                <span className="text-[11px] text-[#fdbc24]">
+                  (-{discountPercent}%)
+                </span>
+              ) : null}
+            </div>
+            {hasItems && referralDiscountAmount > 0 ? (
+              <p className="truncate text-[10px] text-white/50 line-through">
+                {formatCurrency(rawSubtotal, currencyCode, language)}
+              </p>
+            ) : null}
+          </div>
         </button>
 
         <button
           type="button"
           disabled={!hasItems}
-          className={`h-12 min-w-[25vw] px-3 text-[3vw] font-bold md:min-w-48 md:text-sm ${
-            hasItems
+          className={`h-12 min-w-[25vw] px-3 text-[3vw] font-bold md:min-w-48 md:text-sm ${hasItems
               ? "bg-[#fdbc24] text-[#2b333b]"
               : "cursor-default bg-[#2b333b] text-white/60"
-          }`}
+            }`}
           onClick={handleCheckout}
         >
           {hasItems ? t("checkout") : t("fromZero")}

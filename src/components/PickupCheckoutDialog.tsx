@@ -5,11 +5,12 @@ import { useMemo, useState } from "react";
 import { PhoneIcon } from "@/components/icons";
 import { formatCurrency } from "@/lib/currency";
 import { useLanguage } from "@/context/LanguageContext";
-import type { CartQuantities, CheckoutDetails, Product } from "@/types/catalog";
+import type { CartQuantities, CheckoutDetails, Product, ReferralInfo } from "@/types/catalog";
 
 interface PickupCheckoutDialogProps {
   products: Product[];
   quantities: CartQuantities;
+  referralInfo?: ReferralInfo | null;
   storeAddress: string | null;
   storePhone: string;
   currencyCode: string;
@@ -20,6 +21,7 @@ interface PickupCheckoutDialogProps {
 export function PickupCheckoutDialog({
   products,
   quantities,
+  referralInfo = null,
   storeAddress,
   storePhone,
   currencyCode,
@@ -29,7 +31,6 @@ export function PickupCheckoutDialog({
   const { language, t } = useLanguage();
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const [discountCode, setDiscountCode] = useState("");
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -45,6 +46,9 @@ export function PickupCheckoutDialog({
     (sum, product) => sum + product.price * (quantities[product.id] ?? 0),
     0,
   );
+  const discountPercent = referralInfo?.discountPercent ?? 0;
+  const referralDiscountAmount = discountPercent > 0 ? Math.round(subtotal * (discountPercent / 100)) : 0;
+  const total = Math.max(0, subtotal - referralDiscountAmount);
 
   return (
     <div className="fixed inset-0 z-[110] bg-black/60" role="presentation">
@@ -58,7 +62,12 @@ export function PickupCheckoutDialog({
           setIsSubmitting(true);
           setError("");
           try {
-            await onConfirm({ customerName, customerPhone, note, discountCode });
+            await onConfirm({
+              customerName,
+              customerPhone,
+              note,
+              referralCode: referralInfo?.code,
+            });
           } catch {
             setError(t("orderFailed"));
           } finally {
@@ -109,16 +118,6 @@ export function PickupCheckoutDialog({
                   className="h-full min-w-0 flex-1 border-0 pl-[1vw] text-[#333] outline-none placeholder:text-[#999] md:pl-2"
                 />
               </label>
-              <label className="flex h-[10vw] items-center border-b border-[#f9f9f9] md:h-12">
-                <span className="min-w-[20vw] whitespace-nowrap md:min-w-28">{t("discountCode")}</span>
-                <input
-                  type="text"
-                  value={discountCode}
-                  onChange={(event) => setDiscountCode(event.target.value)}
-                  placeholder={t("enterDiscountCode")}
-                  className="h-full min-w-0 flex-1 border-0 pl-[1vw] text-[#333] outline-none placeholder:text-[#999] md:pl-2"
-                />
-              </label>
             </div>
           </section>
 
@@ -154,9 +153,21 @@ export function PickupCheckoutDialog({
 
               <div className="pt-[3vw] text-right text-[4vw] font-medium text-[#383838] md:pt-4 md:text-base">
                 <span className="mr-[2%]">{t("quantity")} {itemCount}</span>
-                <span>
-                  {t("subtotal")} <strong>{formatCurrency(subtotal, currencyCode, language)}</strong>
-                </span>
+                {referralDiscountAmount > 0 ? (
+                  <div className="mt-1 space-y-0.5 text-xs text-[#596168] md:text-sm">
+                    <p>{t("subtotal")}: {formatCurrency(subtotal, currencyCode, language)}</p>
+                    <p className="font-semibold text-[#d9382e]">
+                      {t("referralDiscount")} ({referralInfo?.code} -{discountPercent}%): -{formatCurrency(referralDiscountAmount, currencyCode, language)}
+                    </p>
+                    <p className="text-sm font-bold text-[#232323] md:text-base">
+                      {t("checkout")}: <strong className="text-[#fb4f45]">{formatCurrency(total, currencyCode, language)}</strong>
+                    </p>
+                  </div>
+                ) : (
+                  <span>
+                    {t("subtotal")} <strong>{formatCurrency(subtotal, currencyCode, language)}</strong>
+                  </span>
+                )}
               </div>
             </div>
           </section>

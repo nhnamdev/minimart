@@ -45,12 +45,18 @@ export interface StorefrontData {
   categories: Category[];
 }
 
+export interface ReferralInfo {
+  code: string;
+  agentName: string;
+  discountPercent: number;
+}
+
 export interface CheckoutDetails {
   customerName: string;
   customerPhone: string;
   deliveryAddress?: string;
   note?: string;
-  discountCode?: string;
+  referralCode?: string;
 }
 
 export interface SavedOrderReference {

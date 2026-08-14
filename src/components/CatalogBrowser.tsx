@@ -15,6 +15,7 @@ interface CatalogBrowserProps {
   searchTerm: string;
   quantities: CartQuantities;
   onQuantityChange: (productId: string, next: number) => void;
+  referralDiscountPercent?: number;
 }
 
 export function CatalogBrowser({
@@ -23,6 +24,7 @@ export function CatalogBrowser({
   searchTerm,
   quantities,
   onQuantityChange,
+  referralDiscountPercent = 0,
 }: CatalogBrowserProps) {
   const { language, t } = useLanguage();
   const paneRef = useRef<HTMLDivElement>(null);
@@ -185,9 +187,27 @@ export function CatalogBrowser({
                           {product.description}
                         </span>
                       ) : null}
-                      <span className="mt-auto text-[4.3vw] leading-none font-bold text-[#fb4f45] md:text-lg">
-                        {formatCurrency(product.price, currencyCode, language)}
-                      </span>
+                      <div className="mt-auto flex flex-wrap items-baseline gap-1.5">
+                        <span className="text-[4.3vw] leading-none font-bold text-[#fb4f45] md:text-lg">
+                          {formatCurrency(
+                            referralDiscountPercent > 0
+                              ? Math.round(product.price * (1 - referralDiscountPercent / 100))
+                              : product.price,
+                            currencyCode,
+                            language,
+                          )}
+                        </span>
+                        {referralDiscountPercent > 0 ? (
+                          <>
+                            <span className="text-[3vw] text-[#9aa0a6] line-through md:text-xs">
+                              {formatCurrency(product.price, currencyCode, language)}
+                            </span>
+                            <span className="rounded bg-[#ffebe8] px-1 py-0.5 text-[2.5vw] font-bold text-[#f05045] md:text-[10px]">
+                              -{referralDiscountPercent}%
+                            </span>
+                          </>
+                        ) : null}
+                      </div>
                     </button>
 
                     <div
@@ -268,9 +288,27 @@ export function CatalogBrowser({
                 {selectedProduct.description}
               </p>
             ) : null}
-            <p className="mt-4 text-2xl font-bold text-[#fb4f45]">
-              {formatCurrency(selectedProduct.price, currencyCode, language)}
-            </p>
+            <div className="mt-4 flex flex-wrap items-baseline gap-2">
+              <p className="text-2xl font-bold text-[#fb4f45]">
+                {formatCurrency(
+                  referralDiscountPercent > 0
+                    ? Math.round(selectedProduct.price * (1 - referralDiscountPercent / 100))
+                    : selectedProduct.price,
+                  currencyCode,
+                  language,
+                )}
+              </p>
+              {referralDiscountPercent > 0 ? (
+                <>
+                  <span className="text-sm text-[#9aa0a6] line-through">
+                    {formatCurrency(selectedProduct.price, currencyCode, language)}
+                  </span>
+                  <span className="rounded bg-[#ffebe8] px-1.5 py-0.5 text-xs font-bold text-[#f05045]">
+                    -{referralDiscountPercent}%
+                  </span>
+                </>
+              ) : null}
+            </div>
           </div>
         </div>
       ) : null}

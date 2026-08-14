@@ -154,6 +154,22 @@ CREATE TABLE IF NOT EXISTS `product_translations` (
     ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE = InnoDB;
 
+CREATE TABLE IF NOT EXISTS `referral_codes` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `code` VARCHAR(50) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `agent_name` VARCHAR(255) NOT NULL,
+  `phone` VARCHAR(30) NULL,
+  `discount_percent` DECIMAL(5, 2) UNSIGNED NOT NULL DEFAULT 5.00,
+  `commission_percent` DECIMAL(5, 2) UNSIGNED NOT NULL DEFAULT 5.00,
+  `is_active` BOOLEAN NOT NULL DEFAULT TRUE,
+  `note` TEXT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_referral_codes_code` (`code`),
+  KEY `idx_referral_codes_active` (`is_active`)
+) ENGINE = InnoDB;
+
 -- Minimal order model matching the current delivery/pickup checkout dialogs.
 -- Prices and product names are copied into order_items so old orders remain
 -- correct even if the catalog is edited later.
@@ -169,6 +185,9 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `delivery_address` TEXT NULL,
   `customer_note` VARCHAR(500) NULL,
   `discount_code` VARCHAR(100) NULL,
+  `referral_code` VARCHAR(50) CHARACTER SET ascii COLLATE ascii_bin NULL,
+  `referral_discount_amount` DECIMAL(15, 2) UNSIGNED NOT NULL DEFAULT 0.00,
+  `referral_commission` DECIMAL(15, 2) UNSIGNED NOT NULL DEFAULT 0.00,
   `currency_code` CHAR(3) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'VND',
   `subtotal` DECIMAL(15, 2) UNSIGNED NOT NULL,
   `total` DECIMAL(15, 2) UNSIGNED NOT NULL,
@@ -178,6 +197,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
   UNIQUE KEY `uq_orders_order_code` (`order_code`),
   KEY `idx_orders_site_created` (`site_id`, `created_at`),
   KEY `idx_orders_status_created` (`status`, `created_at`),
+  KEY `idx_orders_referral_code` (`referral_code`),
   CONSTRAINT `fk_orders_site`
     FOREIGN KEY (`site_id`) REFERENCES `sites` (`id`)
     ON UPDATE CASCADE ON DELETE RESTRICT,
