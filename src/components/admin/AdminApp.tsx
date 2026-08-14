@@ -6,12 +6,14 @@ import {
   ChevronDown,
   ClipboardList,
   Copy,
+  Download,
   ImagePlus,
   Layers3,
   LogOut,
   Package,
   Pencil,
   Plus,
+  QrCode,
   RefreshCw,
   Save,
   ShoppingBag,
@@ -21,7 +23,8 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import QRCode from "qrcode";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { languageOptions } from "@/lib/i18n";
 import { formatCurrency } from "@/lib/currency";
@@ -1119,11 +1122,116 @@ function ReferralModal({
   );
 }
 
+function ReferralQrModal({
+  referral,
+  onClose,
+}: {
+  referral: AdminReferralCode;
+  onClose: () => void;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [copied, setCopied] = useState(false);
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const link = `${origin}/?ref=${referral.code}`;
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    void QRCode.toCanvas(canvasRef.current, link, {
+      width: 280,
+      margin: 2,
+      color: {
+        dark: "#141d27",
+        light: "#ffffff",
+      },
+    });
+  }, [link]);
+
+  function downloadQr() {
+    if (!canvasRef.current) return;
+    const url = canvasRef.current.toDataURL("image/png");
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `QR_${referral.code}.png`;
+    anchor.click();
+  }
+
+  function copyLink() {
+    void navigator.clipboard.writeText(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[120] grid place-items-center overflow-y-auto bg-black/60 p-4" role="presentation">
+      <section
+        role="dialog"
+        aria-modal="true"
+        className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-[#e5e8ea] pb-3">
+          <h2 className="text-base font-bold text-[#20252b]">推荐码专属二维码</h2>
+          <button type="button" onClick={onClose} className="rounded-lg p-1 text-[#687078] hover:bg-[#f0f2f4]">
+            <X className="size-5" />
+          </button>
+        </div>
+
+        <div className="mt-4 flex flex-col items-center">
+          <div className="rounded-xl border border-[#e2e6e9] bg-white p-3 shadow-inner">
+            <canvas ref={canvasRef} className="size-56 rounded-lg" />
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            <span className="font-mono text-base font-bold text-[#20252b] bg-[#f0f2f4] px-2.5 py-0.5 rounded">
+              {referral.code}
+            </span>
+            <span className="rounded bg-[#ffebe8] px-2 py-0.5 text-xs font-bold text-[#f05045]">
+              立减 {referral.discountPercent}%
+            </span>
+          </div>
+
+          <p className="mt-1.5 text-sm font-semibold text-[#343a40]">
+            {referral.agentName} {referral.phone ? `(${referral.phone})` : ""}
+          </p>
+
+          <p className="mt-2 w-full truncate rounded bg-[#f8f9fa] px-3 py-1.5 text-xs text-[#687078] select-all">
+            {link}
+          </p>
+
+          <div className="mt-5 grid w-full grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onClick={copyLink}
+              className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2.5 text-xs font-bold transition ${
+                copied
+                  ? "border-[#26733d] bg-[#eaf8ec] text-[#26733d]"
+                  : "border-[#cfd4d8] bg-white text-[#3e464d] hover:bg-[#f7f8f9]"
+              }`}
+            >
+              {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+              {copied ? "已复制" : "复制链接"}
+            </button>
+
+            <button
+              type="button"
+              onClick={downloadQr}
+              className="flex items-center justify-center gap-1.5 rounded-lg bg-[#fdbc24] px-3 py-2.5 text-xs font-bold text-[#20252b] hover:bg-[#efae14] shadow-sm"
+            >
+              <Download className="size-3.5" /> 下载二维码
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function ReferralsPanel() {
   const [data, setData] = useState<AdminReferralsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [modalReferral, setModalReferral] = useState<AdminReferralCode | null | "new">(null);
+  const [qrModalReferral, setQrModalReferral] = useState<AdminReferralCode | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [toggleLoadingId, setToggleLoadingId] = useState<string | null>(null);
 
@@ -1289,6 +1397,15 @@ function ReferralsPanel() {
                   <div className="flex flex-wrap items-center gap-2 shrink-0">
                     <button
                       type="button"
+                      onClick={() => setQrModalReferral(referral)}
+                      className="flex items-center gap-1.5 rounded-lg border border-[#cfd4d8] bg-white px-3 py-2 text-xs font-bold text-[#3e464d] hover:bg-[#f7f8f9] transition"
+                    >
+                      <QrCode className="size-3.5 text-[#141d27]" />
+                      二维码
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => copyLink(referral.code)}
                       className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold transition ${
                         isCopied
@@ -1346,6 +1463,13 @@ function ReferralsPanel() {
             setModalReferral(null);
             void loadReferrals();
           }}
+        />
+      ) : null}
+
+      {qrModalReferral ? (
+        <ReferralQrModal
+          referral={qrModalReferral}
+          onClose={() => setQrModalReferral(null)}
         />
       ) : null}
     </section>
